@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>sUNC</title>
+  <meta content="#007bff" name="theme-color">
+  <meta content="NeptuneHub" property="og:title">
+  <meta content="Best universal hub" property="og:description">
+  <link rel="icon" type="image/x-icon" href="https://sunc.lol/img/favicon.webp">
+  <style>
+    body {
+      background-color: #001f3f;
+      color: white;
+      font-family: Arial, sans-serif;
+      margin: 0;
+    }
+    .nav {
+      display: flex;
+      background-color: #003366;
+      padding: 10px;
+    }
+    .nav-item {
+      color: white;
+      margin-right: 15px;
+      text-decoration: none;
+      padding: 8px 12px;
+      border-radius: 5px;
+    }
+    .nav-item.active {
+      background-color: #007bff;
+    }
+    .main {
+      text-align: center;
+      margin-top: 50px;
+    }
+    .title {
+      font-size: 48px;
+      color: #3399ff;
+    }
+    .subtitle {
+      font-size: 20px;
+      color: #99ccff;
+    }
+    .script-box {
+      background-color: #003366;
+      padding: 15px;
+      border-radius: 10px;
+      margin: 30px auto;
+      max-width: 600px;
+      border: 1px solid #007bff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    #script {
+      user-select: all;
+      word-break: break-word;
+    }
+    button {
+      background-color: transparent;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .footer {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .footer span {
+      color: #cccccc;
+      font-size: 14px;
+    }
+  </style>
+  <script>
+    function copyScript() {
+      const scriptContent = document.getElementById('script').textContent;
+      navigator.clipboard.writeText(scriptContent).then(() => {
+        alert('Script copied to clipboard!');
+      }).catch(err => {
+        console.error('Failed to copy script: ', err);
+      });
+    }
+  </script>
+</head>
+<body>
+  <div class="nav">
+    <a href="#" class="nav-item active">Home</a>
+    <a href="https://discord.gg/VUTn7FNvUN" class="nav-item" target="_blank">Discord</a>
+  </div>
+
+  <div class="main">
+    <span class="title">NeptuneHub</span>
+    <span class="subtitle">Best universal hub</span>
+
+    <img src="7104de7c-66d9-4aed-a9d2-fc98b564804b.png" alt="NeptuneHub Image" style="max-width: 400px; width: 100%; margin-top: 20px; margin-bottom: 20px; border-radius: 10px;">
+  </div>
+
+  <div class="script">
+    <div class="script-box">
+      <span id="script">loadstring(game:HttpGet("https://raw.githubusercontent.com/Clonelis/Scripts/refs/heads/main/NeptuneHub.lua"))()</span>
+      <button onclick="copyScript()">
+        <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="rgb(147, 147, 147)">
+          <path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+  <div class="footer">
+    <span>© 2025 Neptune team. All Rights Reserved.</span>
+  </div>
+</body>
+</html>

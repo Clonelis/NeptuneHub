@@ -614,15 +614,12 @@
       };
 
       if (file.type.startsWith('image/')) {
-        // Если это изображение
         message.type = 'image';
         message.fileUrl = URL.createObjectURL(file);
       } else if (file.type.startsWith('video/')) {
-        // Если это видео
         message.type = 'video';
         message.fileUrl = URL.createObjectURL(file);
       } else {
-        // Если это документ
         message.type = 'document';
         message.fileUrl = URL.createObjectURL(file);
         message.fileName = file.name;

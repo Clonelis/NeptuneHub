@@ -11,6 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
     body {
       background-color: #001f3f;
@@ -242,7 +243,7 @@
       margin-top: 10px;
     }
     .chat-container {
-      max-width: 600px;
+      max-width: 800px; /* Increased from 600px */
       margin: 20px auto;
       padding: 20px;
       background-color: #003366;
@@ -250,15 +251,16 @@
       border: 1px solid #007bff;
     }
     .chat-messages {
-      max-height: 300px;
+      max-height: 500px; /* Increased from 300px */
       overflow-y: auto;
       border: 1px solid #007bff;
-      padding: 10px;
+      padding: 15px;
       border-radius: 5px;
       background-color: #001f3f;
-      margin-bottom: 10px;
+      margin-bottom: 15px;
       scrollbar-width: thin;
       scrollbar-color: #3399ff #003366;
+      font-size: 16px; /* Slightly larger text */
     }
     .chat-messages::-webkit-scrollbar {
       width: 10px;
@@ -279,11 +281,11 @@
       background: #1a75ff;
     }
     .chat-message {
-      padding: 5px;
-      margin: 5px 0;
+      padding: 8px;
+      margin: 8px 0;
       border-radius: 5px;
       background-color: #004080;
-      font-size: 14px;
+      font-size: 16px;
       animation: fadeInSlide 0.3s ease;
       display: flex;
       flex-direction: column;
@@ -293,15 +295,15 @@
       color: #3399ff;
     }
     .chat-message img {
-      max-width: 200px;
-      max-height: 200px;
+      max-width: 300px; /* Increased from 200px */
+      max-height: 300px;
       margin-top: 5px;
       border-radius: 5px;
       border: 1px solid #007bff;
     }
     .chat-message video {
-      max-width: 200px;
-      max-height: 200px;
+      max-width: 300px;
+      max-height: 300px;
       margin-top: 5px;
       border-radius: 5px;
       border: 1px solid #007bff;
@@ -322,11 +324,12 @@
     }
     .chat-input input[type="text"] {
       flex: 1;
-      padding: 8px;
+      padding: 10px;
       border: 1px solid #007bff;
       border-radius: 5px;
       background-color: #003366;
       color: white;
+      font-size: 16px;
     }
     .chat-input input[type="text"]:focus {
       outline: none;
@@ -336,7 +339,7 @@
     .chat-input .send-btn {
       background-color: #007bff;
       color: white;
-      padding: 8px 12px;
+      padding: 10px 15px;
       border-radius: 5px;
       display: flex;
       align-items: center;
@@ -350,12 +353,12 @@
     }
     .chat-input .send-btn svg {
       fill: white;
-      width: 18px;
-      height: 18px;
+      width: 20px;
+      height: 20px;
     }
     .chat-input label {
       cursor: pointer;
-      padding: 8px;
+      padding: 10px;
       border-radius: 5px;
       background-color: #007bff;
       color: white;
@@ -370,13 +373,45 @@
     .clear-chat-btn {
       background-color: #ff4d4d;
       color: white;
-      padding: 8px 15px;
+      padding: 10px 15px;
       border-radius: 5px;
-      margin-bottom: 10px;
+      margin-bottom: 15px;
       display: none;
     }
     .clear-chat-btn:hover {
       background-color: #cc0000;
+    }
+    .peer-connect {
+      margin-bottom: 15px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .peer-connect input {
+      padding: 10px;
+      border: 1px solid #007bff;
+      border-radius: 5px;
+      background-color: #003366;
+      color: white;
+      font-size: 16px;
+      width: 200px;
+    }
+    .peer-connect button {
+      background-color: #007bff;
+      color: white;
+      padding: 10px 15px;
+      border-radius: 5px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+    .peer-connect button:hover {
+      background-color: #0056b3;
+      transform: scale(1.05);
+    }
+    .peer-id-display {
+      color: #99ccff;
+      font-size: 14px;
+      margin-bottom: 10px;
     }
   </style>
 </head>
@@ -453,6 +488,11 @@
       <span class="title">NeptuneHub Chat</span>
     </div>
     <div class="chat-container">
+      <div class="peer-connect">
+        <span class="peer-id-display" id="peer-id">Your Peer ID: Not connected</span>
+        <input type="text" id="peer-connect-input" placeholder="Enter friend's Peer ID">
+        <button onclick="connectToPeer()">Connect</button>
+      </div>
       <button class="clear-chat-btn" id="clear-chat-btn" onclick="clearChat()">Clear Chat</button>
       <div class="chat-messages" id="chat-messages"></div>
       <div class="chat-input">
@@ -477,6 +517,8 @@
     let isSwitching = false;
     let currentUser = null;
     let messages = [];
+    let peer = null;
+    let conn = null;
 
     const users = [
       { username: 'Clonelis_png', password: 'Clonelis3123124' },
@@ -487,6 +529,7 @@
       messages = [];
       document.getElementById('home-content').style.display = 'block';
       updateNav();
+      initializePeer();
 
       const chatInput = document.getElementById('chat-input');
       chatInput.addEventListener('keypress', function(event) {
@@ -496,6 +539,63 @@
         }
       });
     });
+
+    function initializePeer() {
+      peer = new Peer();
+      peer.on('open', function(id) {
+        document.getElementById('peer-id').textContent = `Your Peer ID: ${id}`;
+      });
+      peer.on('connection', function(connection) {
+        conn = connection;
+        conn.on('data', function(data) {
+          receiveMessage(data);
+        });
+        showAlert('Connected to peer!');
+      });
+      peer.on('error', function(err) {
+        showAlert('Peer connection error: ' + err);
+      });
+    }
+
+    function connectToPeer() {
+      const peerId = document.getElementById('peer-connect-input').value.trim();
+      if (!peerId) {
+        showAlert('Please enter a valid Peer ID');
+        return;
+      }
+      conn = peer.connect(peerId);
+      conn.on('open', function() {
+        showAlert('Connected to peer!');
+      });
+      conn.on('data', function(data) {
+        receiveMessage(data);
+      });
+      conn.on('error', function(err) {
+        showAlert('Connection error: ' + err);
+      });
+    }
+
+    function showAlert(message) {
+      const alertBox = document.createElement('div');
+      alertBox.textContent = message;
+      alertBox.style.position = 'fixed';
+      alertBox.style.bottom = '20px';
+      alertBox.style.right = '20px';
+      alertBox.style.backgroundColor = '#007bff';
+      alertBox.style.color = 'white';
+      alertBox.style.padding = '10px 20px';
+      alertBox.style.borderRadius = '5px';
+      alertBox.style.zIndex = '1000';
+      alertBox.style.animation = 'fadeIn 0.3s ease';
+      document.body.appendChild(alertBox);
+      
+      setTimeout(() => {
+        alertBox.style.animation = 'fadeOut 0.3s ease';
+        setTimeout(() => {
+          document.body.removeChild(alertBox);
+        }, 300);
+      }, 2000);
+    }
 
     function toggleModal() {
       const modal = document.getElementById('imageModal');
@@ -513,25 +613,7 @@
     function copyScript() {
       const scriptContent = document.getElementById('script').textContent;
       navigator.clipboard.writeText(scriptContent).then(() => {
-        const alertBox = document.createElement('div');
-        alertBox.textContent = 'Script copied to clipboard!';
-        alertBox.style.position = 'fixed';
-        alertBox.style.bottom = '20px';
-        alertBox.style.right = '20px';
-        alertBox.style.backgroundColor = '#007bff';
-        alertBox.style.color = 'white';
-        alertBox.style.padding = '10px 20px';
-        alertBox.style.borderRadius = '5px';
-        alertBox.style.zIndex = '1000';
-        alertBox.style.animation = 'fadeIn 0.3s ease';
-        document.body.appendChild(alertBox);
-        
-        setTimeout(() => {
-          alertBox.style.animation = 'fadeOut 0.3s ease';
-          setTimeout(() => {
-            document.body.removeChild(alertBox);
-          }, 300);
-        }, 2000);
+        showAlert('Script copied to clipboard!');
       }).catch(err => {
         console.error('Failed to copy script: ', err);
       });
@@ -562,6 +644,10 @@
       renderMessages();
       updateNav();
       showTab('home');
+      if (conn) {
+        conn.close();
+        conn = null;
+      }
     }
 
     function updateNav() {
@@ -600,8 +686,16 @@
       }
 
       messages.push(message);
+      if (conn) {
+        conn.send(message);
+      }
       renderMessages();
       input.value = '';
+    }
+
+    function receiveMessage(data) {
+      messages.push(data);
+      renderMessages();
     }
 
     function handleFileUpload(event) {
@@ -626,6 +720,9 @@
       }
 
       messages.push(message);
+      if (conn) {
+        conn.send(message);
+      }
       renderMessages();
 
       event.target.value = '';

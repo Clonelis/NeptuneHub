@@ -338,7 +338,7 @@
     .chat-message a:hover {
       text-decoration: underline;
     }
-    .chat-message .copy-btn, .chat-message .edit-btn {
+    .chat-message .copy-btn, .chat-message .edit-btn, .chat-message .reply-btn {
       position: absolute;
       top: 8px;
       right: 8px;
@@ -351,10 +351,13 @@
     .chat-message .edit-btn {
       right: 40px;
     }
-    .chat-message .copy-btn:hover, .chat-message .edit-btn:hover {
+    .chat-message .reply-btn {
+      right: 72px;
+    }
+    .chat-message .copy-btn:hover, .chat-message .edit-btn:hover, .chat-message .reply-btn:hover {
       background-color: #0056b3;
     }
-    .chat-message .copy-btn svg, .chat-message .edit-btn svg {
+    .chat-message .copy-btn svg, .chat-message .edit-btn svg, .chat-message .reply-btn svg {
       fill: white;
       width: 16px;
       height: 16px;
@@ -367,6 +370,19 @@
     }
     .chat-message:hover .history {
       display: block;
+    }
+    .chat-message .read-status {
+      font-size: 12px;
+      color: #99ccff;
+      margin-top: 5px;
+    }
+    .chat-message .replied-message {
+      background-color: #002b55;
+      padding: 5px;
+      border-left: 3px solid #007bff;
+      margin-bottom: 5px;
+      font-size: 14px;
+      border-radius: 3px;
     }
     .chat-input {
       display: flex;
@@ -729,6 +745,7 @@
     let currentGroupName = '';
     let groupHost = null;
     let userAvatars = {};
+    let readReceipts = {};
     const messageSound = document.getElementById('messageSound');
     const remoteAudio = document.getElementById('remoteAudio');
     const remoteVideo = document.getElementById('remoteVideo');
@@ -793,13 +810,16 @@
           timestamp: new Date().toLocaleTimeString(),
           type: 'image',
           fileUrl: e.target.result,
-          history: []
+          history: [],
+          readBy: [],
+          replyTo: null
         };
 
         messages.push(message);
         connections.forEach(conn => {
           conn.send(message);
         });
+        sendReadReceipt(message.id);
         renderMessages();
         playMessageSound();
         document.getElementById('chat-input').value = '';
@@ -842,6 +862,8 @@
           } else if (data.type === 'avatar') {
             userAvatars[connection.peer] = data.avatar;
             renderUserList();
+          } else if (data.type === 'read') {
+            handleReadReceipt(data);
           } else {
             if (!peerUsernames[connection.peer] && data.username) {
               peerUsernames[connection.peer] = data.username;
@@ -860,6 +882,11 @@
               timestamp: new Date().toLocaleTimeString()
             };
             connection.send(helloMessage);
+            messages.forEach(msg => {
+              if (msg.readBy && !msg.readBy.includes(connection.peer)) {
+                connection.send({ type: 'read', messageId: msg.id });
+              }
+            });
           }
         });
         connection.on('close', function() {
@@ -1036,6 +1063,11 @@
             timestamp: new Date().toLocaleTimeString()
           };
           conn.send(helloMessage);
+          messages.forEach(msg => {
+            if (msg.readBy && !msg.readBy.includes(conn.peer)) {
+              conn.send({ type: 'read', messageId: msg.id });
+            }
+          });
         }
         showAlert(`Connected to peer: ${peerId}`);
         document.getElementById('call-btn').disabled = false;
@@ -1056,6 +1088,8 @@
         } else if (data.type === 'avatar') {
           userAvatars[conn.peer] = data.avatar;
           renderUserList();
+        } else if (data.type === 'read') {
+          handleReadReceipt(data);
         } else {
           if (!peerUsernames[conn.peer] && data.username) {
             peerUsernames[conn.peer] = data.username;
@@ -1109,6 +1143,11 @@
                 timestamp: new Date().toLocaleTimeString()
               };
               conn.send(helloMessage);
+              messages.forEach(msg => {
+                if (msg.readBy && !msg.readBy.includes(conn.peer)) {
+                  conn.send({ type: 'read', messageId: msg.id });
+                }
+              });
             }
             showAlert(`Connected to peer: ${peerId}`);
             updateGroupList();
@@ -1128,6 +1167,8 @@
             } else if (data.type === 'avatar') {
               userAvatars[conn.peer] = data.avatar;
               renderUserList();
+            } else if (data.type === 'read') {
+              handleReadReceipt(data);
             } else {
               if (!peerUsernames[conn.peer] && data.username) {
                 peerUsernames[conn.peer] = data.username;
@@ -1153,6 +1194,7 @@
       updateGroupList();
       renderUserList();
       updateGroupNameBar();
+      broadcastGroupInfo();
     }
 
     function updateGroupNameBar() {
@@ -1166,7 +1208,8 @@
         type: 'group-init',
         groupPeers: groupPeers,
         sender: myPeerId,
-        host: groupHost
+        host: groupHost,
+        groupName: currentGroupName
       };
       connections.forEach(conn => {
         conn.send(groupMessage);
@@ -1175,6 +1218,7 @@
 
     function handleGroupInit(data) {
       groupHost = data.host || groupHost;
+      currentGroupName = data.groupName || currentGroupName;
       const newPeers = data.groupPeers.filter(id => id !== myPeerId && !connections.some(c => c.peer === id));
       newPeers.forEach(peerId => {
         if (connections.length >= 5) {
@@ -1192,6 +1236,11 @@
               timestamp: new Date().toLocaleTimeString()
             };
             conn.send(helloMessage);
+            messages.forEach(msg => {
+              if (msg.readBy && !msg.readBy.includes(conn.peer)) {
+                conn.send({ type: 'read', messageId: msg.id });
+              }
+            });
           }
           showAlert(`Connected to peer: ${peerId} (via group)`);
           updateGroupList();
@@ -1210,6 +1259,8 @@
           } else if (data.type === 'avatar') {
             userAvatars[conn.peer] = data.avatar;
             renderUserList();
+          } else if (data.type === 'read') {
+            handleReadReceipt(data);
           } else {
             if (!peerUsernames[conn.peer] && data.username) {
               peerUsernames[conn.peer] = data.username;
@@ -1233,6 +1284,7 @@
       groupPeers = [...new Set([...groupPeers, ...data.groupPeers])];
       updateGroupList();
       renderUserList();
+      updateGroupNameBar();
     }
 
     function updateGroupList() {
@@ -1287,7 +1339,7 @@
         showAlert('Screen sharing is not supported in this browser');
         return;
       }
-      navigator.mediaDevices.getDisplayMedia({ video: true })
+      navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
         .then(function(screenStream) {
           localStream = screenStream;
           calls.forEach(call => {
@@ -1297,6 +1349,15 @@
               sender.replaceTrack(videoTrack);
             } else {
               call.peerConnection.addTrack(videoTrack, screenStream);
+            }
+            const audioTrack = screenStream.getAudioTracks()[0];
+            if (audioTrack) {
+              const audioSender = call.peerConnection.getSenders().find(s => s.track && s.track.kind === 'audio');
+              if (audioSender) {
+                audioSender.replaceTrack(audioTrack);
+              } else {
+                call.peerConnection.addTrack(audioTrack, screenStream);
+              }
             }
           });
           remoteVideo.srcObject = screenStream;
@@ -1313,6 +1374,10 @@
                   const sender = call.peerConnection.getSenders().find(s => s.track && s.track.kind === 'audio');
                   if (sender) {
                     sender.replaceTrack(audioTrack);
+                  }
+                  const videoSender = call.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+                  if (videoSender) {
+                    videoSender.replaceTrack(null);
                   }
                 });
                 remoteVideo.style.display = 'none';
@@ -1367,12 +1432,15 @@
         username: 'System',
         text: `${status} with ${peerId}`,
         timestamp: new Date().toLocaleTimeString(),
-        type: 'text'
+        type: 'text',
+        readBy: [],
+        replyTo: null
       };
       messages.push(message);
       connections.forEach(conn => {
         conn.send(message);
       });
+      sendReadReceipt(message.id);
       renderMessages();
       playMessageSound();
     }
@@ -1449,6 +1517,11 @@
             timestamp: new Date().toLocaleTimeString()
           };
           conn.send(helloMessage);
+          messages.forEach(msg => {
+            if (msg.readBy && !msg.readBy.includes(conn.peer)) {
+              conn.send({ type: 'read', messageId: msg.id });
+            }
+          });
         });
       } else {
         errorMessage.textContent = 'Invalid username or password';
@@ -1461,6 +1534,7 @@
       messages = [];
       peerUsernames = {};
       userAvatars = {};
+      readReceipts = {};
       currentGroupName = '';
       groupHost = null;
       if (myPeerId) {
@@ -1498,7 +1572,7 @@
       }
     }
 
-    function sendMessage() {
+    function sendMessage(replyToId = null) {
       const input = document.getElementById('chat-input');
       const messageText = input.value.trim();
       if (!messageText || !currentUser) return;
@@ -1509,7 +1583,9 @@
         text: messageText,
         timestamp: new Date().toLocaleTimeString(),
         type: 'text',
-        history: []
+        history: [],
+        readBy: [],
+        replyTo: replyToId
       };
 
       if (messageText.match(/\.(gif)$/i) || messageText.includes('giphy.com')) {
@@ -1521,9 +1597,33 @@
       connections.forEach(conn => {
         conn.send(message);
       });
+      sendReadReceipt(message.id);
       renderMessages();
       input.value = '';
       playMessageSound();
+    }
+
+    function replyToMessage(messageId) {
+      const message = messages.find(m => m.id === messageId);
+      if (!message || !currentUser) return;
+
+      const replyText = prompt(`Replying to ${message.username}'s message: ${message.text}\nEnter your reply:`);
+      if (replyText && replyText.trim()) {
+        sendMessage(messageId);
+        const replyMessage = messages.find(m => m.replyTo === messageId && m.username === currentUser.username);
+        if (replyMessage) {
+          const readReceipt = {
+            type: 'read',
+            messageId: messageId,
+            readBy: myPeerId,
+            replied: true
+          };
+          connections.forEach(conn => {
+            conn.send(readReceipt);
+          });
+          handleReadReceipt(readReceipt);
+        }
+      }
     }
 
     function editMessage(messageId) {
@@ -1544,6 +1644,33 @@
       }
     }
 
+    function sendReadReceipt(messageId) {
+      const message = messages.find(m => m.id === messageId);
+      if (message && !message.readBy.includes(myPeerId)) {
+        message.readBy.push(myPeerId);
+        const readReceipt = {
+          type: 'read',
+          messageId: messageId,
+          readBy: myPeerId,
+          replied: false
+        };
+        connections.forEach(conn => {
+          conn.send(readReceipt);
+        });
+      }
+    }
+
+    function handleReadReceipt(data) {
+      const message = messages.find(m => m.id === data.messageId);
+      if (message && !message.readBy.includes(data.readBy)) {
+        message.readBy.push(data.readBy);
+        if (data.replied) {
+          message.replied = true;
+        }
+        renderMessages();
+      }
+    }
+
     function receiveMessage(data) {
       if (data.type === 'hello') {
         if (!messages.some(m => m.type === 'hello' && m.username === data.username)) {
@@ -1560,6 +1687,9 @@
         }
       } else {
         messages.push(data);
+        if (data.id && !data.readBy.includes(myPeerId)) {
+          sendReadReceipt(data.id);
+        }
       }
       renderMessages();
       playMessageSound();
@@ -1595,13 +1725,16 @@
           timestamp: new Date().toLocaleTimeString(),
           type: file.type.startsWith('image/') ? 'image' : 'video',
           fileUrl: e.target.result,
-          history: []
+          history: [],
+          readBy: [],
+          replyTo: null
         };
 
         messages.push(message);
         connections.forEach(conn => {
           conn.send(message);
         });
+        sendReadReceipt(message.id);
         renderMessages();
         playMessageSound();
       };
@@ -1664,9 +1797,7 @@
           <img src="${avatarSrc}" alt="Avatar" onclick="if ('${user.peerId}' === myPeerId) document.getElementById('avatar-input-${user.peerId}').click();">
           <span>${user.username}${isHost ? '<span class="host-label">host</span>' : ''}</span>
         `;
-        if (isHost && user.peerId === myPeerId) {
-          // Host doesn't get a kick button for themselves
-        } else if (groupHost === myPeerId && user.peerId !== myPeerId) {
+        if (groupHost === myPeerId && user.peerId !== myPeerId) {
           userContent += `
             <button class="kick-btn" onclick="kickUser('${user.peerId}')">
               <svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px">
@@ -1700,6 +1831,17 @@
         
         let messageContent = `<span>${msg.username}</span> [${msg.timestamp}]: `;
         
+        if (msg.replyTo) {
+          const repliedMsg = messages.find(m => m.id === msg.replyTo);
+          if (repliedMsg) {
+            messageContent += `
+              <div class="replied-message">
+                ${repliedMsg.username}: ${repliedMsg.type === 'text' ? repliedMsg.text : '[Media]'}
+              </div>
+            `;
+          }
+        }
+
         if (msg.type === 'text') {
           messageContent += msg.text;
         } else if (msg.type === 'gif' || msg.type === 'image') {
@@ -1713,19 +1855,30 @@
             <svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px">
               <path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Z"/>
             </svg>
-          </button>`;
+          </button>
+          <button class="reply-btn" onclick="replyToMessage(${msg.id})">
+            <svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px">
+              <path d="M760-200v-160q0-83-58.5-141.5T560-560H240l184 184-64 64-280-280 280-280 64 64-184 184h320q117 0 198.5 81.5T760-360v160h-80Z"/>
+            </svg>
+          </button>
+        `;
 
         if (msg.username === currentUser?.username && msg.type === 'text') {
           messageContent += `
             <button class="edit-btn" onclick="editMessage(${msg.id})">
               <svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px">
                 <path d="M200-200h57l391-391-57-57-391 391v57Zm-80 80v-170l528-527q12-11 28-11t28 11l57 57q11 12 11 28t-11 28L230-270H120Zm640-584-56-56 56 56Zm-141 85-28-29 57 57-29-28Z"/>
-            </svg>
-          </button>`;
+              </svg>
+            </button>`;
         }
 
         if (msg.history && msg.history.length > 0) {
           messageContent += `<div class="history">Edit History: ${msg.history.map(h => `[${h.timestamp}] ${h.text}`).join('<br>')}</div>`;
+        }
+
+        if (msg.readBy) {
+          const readStatus = msg.replied ? '✓✓ Replied' : (msg.readBy.length > 1 ? '✓ Read' : '✓ Sent');
+          messageContent += `<div class="read-status">${readStatus}</div>`;
         }
 
         messageDiv.innerHTML = messageContent;

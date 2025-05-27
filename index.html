@@ -289,6 +289,7 @@
       animation: fadeInSlide 0.3s ease;
       display: flex;
       flex-direction: column;
+      position: relative;
     }
     .chat-message span {
       font-weight: 600;
@@ -316,6 +317,24 @@
     }
     .chat-message a:hover {
       text-decoration: underline;
+    }
+    .chat-message .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background-color: #007bff;
+      padding: 5px;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+    }
+    .chat-message .copy-btn:hover {
+      background-color: #0056b3;
+    }
+    .chat-message .copy-btn svg {
+      fill: white;
+      width: 16px;
+      height: 16px;
     }
     .chat-input {
       display: flex;
@@ -413,10 +432,16 @@
       font-size: 14px;
       margin-bottom: 10px;
     }
+    .call-status {
+      color: #99ccff;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
   </style>
 </head>
 <body>
   <audio id="messageSound" src="https://freesound.org/data/previews/256/256458_4770666-lq.mp3"></audio>
+  <audio id="remoteAudio" autoplay></audio>
   <div class="nav">
     <a href="#" class="nav-item active" onclick="showTab('home')">Home</a>
     <a href="#" class="nav-item" onclick="showTab('info')">Info</a>
@@ -493,7 +518,10 @@
         <span class="peer-id-display" id="peer-id">Your Peer ID: Not connected</span>
         <input type="text" id="peer-connect-input" placeholder="Enter friend's Peer ID">
         <button onclick="connectToPeer()">Connect</button>
+        <button id="call-btn" onclick="startCall()" disabled>Call</button>
+        <button id="hangup-btn" onclick="endCall()" style="display: none;">Hang Up</button>
       </div>
+      <div class="call-status" id="call-status"></div>
       <button class="clear-chat-btn" id="clear-chat-btn" onclick="clearChat()">Clear Chat</button>
       <div class="chat-messages" id="chat-messages"></div>
       <div class="chat-input">
@@ -520,7 +548,9 @@
     let messages = [];
     let peer = null;
     let conn = null;
+    let call = null;
     const messageSound = document.getElementById('messageSound');
+    const remoteAudio = document.getElementById('remoteAudio');
 
     const users = [
       { username: 'Clonelis_png', password: 'Clonelis3123124' },
@@ -546,6 +576,7 @@
       peer = new Peer();
       peer.on('open', function(id) {
         document.getElementById('peer-id').textContent = `Your Peer ID: ${id}`;
+        document.getElementById('call-btn').disabled = false;
       });
       peer.on('connection', function(connection) {
         conn = connection;
@@ -553,9 +584,34 @@
           receiveMessage(data);
         });
         showAlert('Connected to peer!');
+        document.getElementById('call-btn').disabled = false;
+      });
+      peer.on('call', function(incomingCall) {
+        call = incomingCall;
+        navigator.mediaDevices.getUserMedia({ audio: true })
+          .then(function(stream) {
+            call.answer(stream);
+            call.on('stream', function(remoteStream) {
+              remoteAudio.srcObject = remoteStream;
+              document.getElementById('call-status').textContent = 'Call Connected';
+              document.getElementById('call-btn').style.display = 'none';
+              document.getElementById('hangup-btn').style.display = 'inline-block';
+            });
+            call.on('close', function() {
+              endCall();
+            });
+            call.on('error', function(err) {
+              showAlert('Call error: ' + err);
+              endCall();
+            });
+          })
+          .catch(function(err) {
+            showAlert('Microphone access denied: ' + err);
+          });
       });
       peer.on('error', function(err) {
         showAlert('Peer connection error: ' + err);
+        document.getElementById('call-btn').disabled = true;
       });
     }
 
@@ -568,13 +624,54 @@
       conn = peer.connect(peerId);
       conn.on('open', function() {
         showAlert('Connected to peer!');
+        document.getElementById('call-btn').disabled = false;
       });
       conn.on('data', function(data) {
         receiveMessage(data);
       });
       conn.on('error', function(err) {
         showAlert('Connection error: ' + err);
+        document.getElementById('call-btn').disabled = true;
       });
+    }
+
+    function startCall() {
+      if (!conn) {
+        showAlert('Please connect to a peer first');
+        return;
+      }
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(function(stream) {
+          call = peer.call(conn.peer, stream);
+          call.on('stream', function(remoteStream) {
+            remoteAudio.srcObject = remoteStream;
+            document.getElementById('call-status').textContent = 'Call Connected';
+            document.getElementById('call-btn').style.display = 'none';
+            document.getElementById('hangup-btn').style.display = 'inline-block';
+          });
+          call.on('close', function() {
+            endCall();
+          });
+          call.on('error', function(err) {
+            showAlert('Call error: ' + err);
+            endCall();
+          });
+          document.getElementById('call-status').textContent = 'Calling...';
+        })
+        .catch(function(err) {
+          showAlert('Microphone access denied: ' + err);
+        });
+    }
+
+    function endCall() {
+      if (call) {
+        call.close();
+        call = null;
+      }
+      remoteAudio.srcObject = null;
+      document.getElementById('call-status').textContent = 'Call Ended';
+      document.getElementById('call-btn').style.display = 'inline-block';
+      document.getElementById('hangup-btn').style.display = 'none';
     }
 
     function showAlert(message) {
@@ -650,6 +747,9 @@
         conn.close();
         conn = null;
       }
+      if (call) {
+        endCall();
+      }
     }
 
     function updateNav() {
@@ -668,6 +768,7 @@
         chatTab.style.display = 'none';
         logoutTab.style.display = 'none';
         clearChatBtn.style.display = 'none';
+        document.getElementById('call-btn').disabled = true;
       }
     }
 
@@ -749,6 +850,25 @@
       event.target.value = '';
     }
 
+    function copyMessageContent(message) {
+      let content = '';
+      if (message.type === 'text') {
+        content = message.text;
+      } else if (message.type === 'gif' || message.type === 'image' || message.type === 'video') {
+        content = message.fileUrl;
+        if (content.length > 1000) {
+          showAlert('Media URL is too large to copy fully. Copied partial URL.');
+          content = content.substring(0, 1000) + '...';
+        }
+      }
+      navigator.clipboard.writeText(content).then(() => {
+        showAlert('Message copied to clipboard!');
+      }).catch(err => {
+        showAlert('Failed to copy message');
+        console.error('Copy failed:', err);
+      });
+    }
+
     function playMessageSound() {
       messageSound.currentTime = 0;
       messageSound.play().catch(err => {
@@ -781,6 +901,13 @@
         } else if (msg.type === 'video') {
           messageContent += `<br><video src="${msg.fileUrl}" controls></video>`;
         }
+
+        messageContent += `
+          <button class="copy-btn" onclick='copyMessageContent(${JSON.stringify(msg)})'>
+            <svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px">
+              <path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Z"/>
+            </svg>
+          </button>`;
 
         messageDiv.innerHTML = messageContent;
         chatMessages.appendChild(messageDiv);

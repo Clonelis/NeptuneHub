@@ -378,13 +378,6 @@
     .clear-chat-btn:hover {
       background-color: #cc0000;
     }
-    .user-badge {
-      font-size: 12px;
-      background-color: #007bff;
-      padding: 2px 5px;
-      border-radius: 3px;
-      margin-left: 5px;
-    }
   </style>
 </head>
 <body>
@@ -432,7 +425,6 @@
         <li>Regular updates</li>
         <li>User-friendly interface</li>
         <li>High-performance scripts</li>
-        <li>Real-time cross-device chat</li>
       </ul>
       <h3>How to use:</h3>
       <p>Simply copy the script from the Home tab and execute it in your preferred executor.</p>
@@ -459,7 +451,6 @@
   <div id="chat-content" class="tab-content" style="display: none;">
     <div class="main">
       <span class="title">NeptuneHub Chat</span>
-      <p id="current-user" style="color: #66b3ff; font-size: 16px;"></p>
     </div>
     <div class="chat-container">
       <button class="clear-chat-btn" id="clear-chat-btn" onclick="clearChat()">Clear Chat</button>
@@ -482,41 +473,21 @@
     <span>© 2025 Neptune team. All Rights Reserved.</span>
   </div>
 
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
-
   <script>
-    // Firebase configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyBYXExgoNpSVkx_TChK81eJUygqGuJ4z98",
-      authDomain: "neptunehub.firebaseapp.com",
-      projectId: "neptunehub",
-      storageBucket: "neptunehub.appspot.com",
-      messagingSenderId: "74262176791",
-      appId: "1:74262176791:web:5c1930e3ff6ed0c6b46852",
-      measurementId: "G-LP0EXZKH7Y"
-    };
-
-    // Initialize Firebase
-    const app = firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    const auth = firebase.auth();
-    const storage = firebase.storage();
-
+    let isSwitching = false;
     let currentUser = null;
     let messages = [];
-    let unsubscribeMessages = null;
-    let isSwitching = false;
 
-    // Initialize when DOM is loaded
+    const users = [
+      { username: 'Clonelis_png', password: 'Clonelis3123124' },
+      { username: '1replicatesignal', password: 'dbcvb31fsvc' }
+    ];
+
     document.addEventListener('DOMContentLoaded', function() {
       messages = [];
       document.getElementById('home-content').style.display = 'block';
-      
-      // Set up chat input listener
+      updateNav();
+
       const chatInput = document.getElementById('chat-input');
       chatInput.addEventListener('keypress', function(event) {
         if (event.key === 'Enter') {
@@ -524,24 +495,8 @@
           sendMessage();
         }
       });
-
-      // Set up auth state listener
-      auth.onAuthStateChanged((user) => {
-        if (user) {
-          currentUser = user;
-          document.getElementById('current-user').textContent = `Logged in as: ${user.email}`;
-          updateNav();
-          initChat();
-        } else {
-          currentUser = null;
-          document.getElementById('current-user').textContent = '';
-          updateNav();
-          if (unsubscribeMessages) unsubscribeMessages();
-        }
-      });
     });
 
-    // Modal functions
     function toggleModal() {
       const modal = document.getElementById('imageModal');
       if (modal.style.display === 'flex') {
@@ -555,7 +510,6 @@
       }
     }
 
-    // Copy script function
     function copyScript() {
       const scriptContent = document.getElementById('script').textContent;
       navigator.clipboard.writeText(scriptContent).then(() => {
@@ -583,119 +537,107 @@
       });
     }
 
-    // Handle login
     function handleLogin(event) {
       event.preventDefault();
       const username = document.getElementById('username').value;
       const password = document.getElementById('password').value;
       const errorMessage = document.getElementById('error-message');
 
-      // Simple email formatting (in real app, use proper email)
-      const email = `${username}@neptunehub.com`;
+      const user = users.find(u => u.username === username && u.password === password);
 
-      auth.signInWithEmailAndPassword(email, password)
-        .then((userCredential) => {
-          errorMessage.style.display = 'none';
-          showTab('chat');
-        })
-        .catch((error) => {
-          errorMessage.textContent = error.message;
-          errorMessage.style.display = 'block';
-        });
+      if (user) {
+        currentUser = user;
+        errorMessage.style.display = 'none';
+        updateNav();
+        showTab('chat');
+      } else {
+        errorMessage.textContent = 'Invalid username or password';
+        errorMessage.style.display = 'block';
+      }
     }
 
-    // Initialize chat
-    function initChat() {
-      const chatMessages = document.getElementById('chat-messages');
-      
-      // Subscribe to messages
-      unsubscribeMessages = db.collection('messages')
-        .orderBy('timestamp', 'asc')
-        .onSnapshot((snapshot) => {
-          messages = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          renderMessages();
-        });
+    function logout() {
+      currentUser = null;
+      messages = [];
+      renderMessages();
+      updateNav();
+      showTab('home');
     }
 
-    // Send message
+    function updateNav() {
+      const loginTab = document.getElementById('login-tab');
+      const chatTab = document.getElementById('chat-tab');
+      const logoutTab = document.getElementById('logout-tab');
+      const clearChatBtn = document.getElementById('clear-chat-btn');
+
+      if (currentUser) {
+        loginTab.style.display = 'none';
+        chatTab.style.display = 'inline-block';
+        logoutTab.style.display = 'inline-block';
+        clearChatBtn.style.display = currentUser.username === 'Admin' ? 'block' : 'none';
+      } else {
+        loginTab.style.display = 'inline-block';
+        chatTab.style.display = 'none';
+        logoutTab.style.display = 'none';
+        clearChatBtn.style.display = 'none';
+      }
+    }
+
     function sendMessage() {
       const input = document.getElementById('chat-input');
       const messageText = input.value.trim();
       if (!messageText || !currentUser) return;
 
-      db.collection('messages').add({
-        username: currentUser.email.split('@')[0],
+      const message = {
+        username: currentUser.username,
         text: messageText,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        type: 'text',
-        userId: currentUser.uid
-      });
+        timestamp: new Date().toLocaleTimeString(),
+        type: 'text'
+      };
 
+      if (messageText.match(/\.(gif)$/i) || messageText.includes('giphy.com')) {
+        message.type = 'gif';
+      }
+
+      messages.push(message);
+      renderMessages();
       input.value = '';
     }
 
-    // Handle file upload
     function handleFileUpload(event) {
       const file = event.target.files[0];
       if (!file || !currentUser) return;
 
-      // Upload file to Firebase Storage
-      const storageRef = storage.ref(`chat_files/${currentUser.uid}/${Date.now()}_${file.name}`);
-      const uploadTask = storageRef.put(file);
+      const message = {
+        username: currentUser.username,
+        timestamp: new Date().toLocaleTimeString()
+      };
 
-      uploadTask.on('state_changed', 
-        (snapshot) => {
-          // Progress monitoring can be added here
-        }, 
-        (error) => {
-          console.error('Upload failed:', error);
-        }, 
-        () => {
-          // Upload completed successfully
-          uploadTask.snapshot.ref.getDownloadURL().then((downloadURL) => {
-            let message = {
-              username: currentUser.email.split('@')[0],
-              timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-              userId: currentUser.uid
-            };
+      if (file.type.startsWith('image/')) {
+        message.type = 'image';
+        message.fileUrl = URL.createObjectURL(file);
+      } else if (file.type.startsWith('video/')) {
+        message.type = 'video';
+        message.fileUrl = URL.createObjectURL(file);
+      } else {
+        message.type = 'document';
+        message.fileUrl = URL.createObjectURL(file);
+        message.fileName = file.name;
+      }
 
-            if (file.type.startsWith('image/')) {
-              message.type = 'image';
-              message.fileUrl = downloadURL;
-            } else if (file.type.startsWith('video/')) {
-              message.type = 'video';
-              message.fileUrl = downloadURL;
-            } else {
-              message.type = 'document';
-              message.fileUrl = downloadURL;
-              message.fileName = file.name;
-            }
-
-            db.collection('messages').add(message);
-          });
-        }
-      );
+      messages.push(message);
+      renderMessages();
 
       event.target.value = '';
     }
 
-    // Clear chat (admin only)
     function clearChat() {
-      if (currentUser && currentUser.email === 'admin@neptunehub.com') {
-        if (confirm('Are you sure you want to clear all messages?')) {
-          db.collection('messages').get().then((querySnapshot) => {
-            querySnapshot.forEach((doc) => {
-              doc.ref.delete();
-            });
-          });
-        }
+      if (currentUser && currentUser.username === 'Admin') {
+        messages = [];
+        renderMessages();
       }
     }
 
-    // Render messages
     function renderMessages() {
       const chatMessages = document.getElementById('chat-messages');
       const isAtBottom = chatMessages.scrollTop + chatMessages.clientHeight >= chatMessages.scrollHeight - 5;
@@ -705,23 +647,16 @@
         const messageDiv = document.createElement('div');
         messageDiv.className = 'chat-message';
         
-        let messageContent = `<span>${msg.username}</span>`;
-        
-        // Add admin badge if admin
-        if (msg.userId === 'admin') {
-          messageContent += `<span class="user-badge">ADMIN</span>`;
-        }
-        
-        messageContent += ` [${new Date(msg.timestamp?.toDate() || new Date()).toLocaleTimeString()}]: `;
+        let messageContent = `<span>${msg.username}</span> [${msg.timestamp}]: `;
         
         if (msg.type === 'text') {
           messageContent += msg.text;
-        } else if (msg.type === 'image') {
-          messageContent += `<br><img src="${msg.fileUrl}" alt="Image">`;
+        } else if (msg.type === 'gif' || msg.type === 'image') {
+          messageContent += `<br><img src="${msg.type === 'gif' ? msg.text : msg.fileUrl}" alt="Media">`;
         } else if (msg.type === 'video') {
           messageContent += `<br><video src="${msg.fileUrl}" controls></video>`;
         } else if (msg.type === 'document') {
-          messageContent += `<br><a href="${msg.fileUrl}" target="_blank">${msg.fileName || 'Download File'}</a>`;
+          messageContent += `<br><a href="${msg.fileUrl}" download="${msg.fileName}">${msg.fileName}</a>`;
         }
 
         messageDiv.innerHTML = messageContent;
@@ -733,38 +668,6 @@
       }
     }
 
-    // Logout
-    function logout() {
-      auth.signOut().then(() => {
-        if (unsubscribeMessages) unsubscribeMessages();
-        currentUser = null;
-        messages = [];
-        updateNav();
-        showTab('home');
-      });
-    }
-
-    // Update navigation
-    function updateNav() {
-      const loginTab = document.getElementById('login-tab');
-      const chatTab = document.getElementById('chat-tab');
-      const logoutTab = document.getElementById('logout-tab');
-      const clearChatBtn = document.getElementById('clear-chat-btn');
-
-      if (currentUser) {
-        loginTab.style.display = 'none';
-        chatTab.style.display = 'inline-block';
-        logoutTab.style.display = 'inline-block';
-        clearChatBtn.style.display = currentUser.email === 'admin@neptunehub.com' ? 'block' : 'none';
-      } else {
-        loginTab.style.display = 'inline-block';
-        chatTab.style.display = 'none';
-        logoutTab.style.display = 'none';
-        clearChatBtn.style.display = 'none';
-      }
-    }
-
-    // Show tab
     function showTab(tabName) {
       if (isSwitching) return;
 

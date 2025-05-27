@@ -416,7 +416,7 @@
   </style>
 </head>
 <body>
-  <audio id="messageSound" src="https://www.soundjay.com/buttons/sounds/beep-01a.mp3"></audio>
+  <audio id="messageSound" src="https://freesound.org/data/previews/256/256458_4770666-lq.mp3"></audio>
   <div class="nav">
     <a href="#" class="nav-item active" onclick="showTab('home')">Home</a>
     <a href="#" class="nav-item" onclick="showTab('info')">Info</a>
@@ -499,7 +499,7 @@
       <div class="chat-input">
         <input type="text" id="chat-input" placeholder="Type your message" required>
         <label for="file-input">🖼️</label>
-        <input type="file" id="file-input" accept="image/png,image/jpeg,image/gif,video/mp4,video/webm,.pdf,.doc,.docx" onchange="handleFileUpload(event)">
+        <input type="file" id="file-input" accept="image/png,image/jpeg,image/gif,video/mp4,video/webm" onchange="handleFileUpload(event)">
         <button class="send-btn" onclick="sendMessage()">
           <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px">
             <path d="M120-160v-640l760 320-760 320Zm80-120 474-200-474-200v140l240 60-240 60v140Zm0 0v-400 400Z"/>
@@ -685,6 +685,7 @@
 
       if (messageText.match(/\.(gif)$/i) || messageText.includes('giphy.com')) {
         message.type = 'gif';
+        message.fileUrl = messageText;
       }
 
       messages.push(message);
@@ -706,47 +707,44 @@
       const file = event.target.files[0];
       if (!file || !currentUser) return;
 
-      const maxImageSize = 5 * 1024 * 1024; // 5MB
-      const maxVideoSize = 10 * 1024 * 1024; // 10MB
+      const maxImageSize = 2 * 1024 * 1024; // 2MB
+      const maxVideoSize = 5 * 1024 * 1024; // 5MB
       if (file.type.startsWith('image/') && file.size > maxImageSize) {
-        showAlert('Image file is too large (max 5MB)');
+        showAlert('Image file is too large (max 2MB)');
         event.target.value = '';
         return;
       }
       if (file.type.startsWith('video/') && file.size > maxVideoSize) {
-        showAlert('Video file is too large (max 10MB)');
+        showAlert('Video file is too large (max 5MB)');
         event.target.value = '';
         return;
       }
-      if (!file.type.startsWith('image/') && !file.type.startsWith('video/') && !['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(file.type)) {
-        showAlert('Unsupported file type');
+      if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+        showAlert('Only images (PNG, JPEG, GIF) and videos (MP4, WebM) are supported');
         event.target.value = '';
         return;
       }
 
-      const message = {
-        username: currentUser.username,
-        timestamp: new Date().toLocaleTimeString()
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const message = {
+          username: currentUser.username,
+          timestamp: new Date().toLocaleTimeString(),
+          type: file.type.startsWith('image/') ? 'image' : 'video',
+          fileUrl: e.target.result // Base64 string
+        };
+
+        messages.push(message);
+        if (conn) {
+          conn.send(message);
+        }
+        renderMessages();
+        playMessageSound();
       };
-
-      if (file.type.startsWith('image/')) {
-        message.type = 'image';
-        message.fileUrl = URL.createObjectURL(file);
-      } else if (file.type.startsWith('video/')) {
-        message.type = 'video';
-        message.fileUrl = URL.createObjectURL(file);
-      } else {
-        message.type = 'document';
-        message.fileUrl = URL.createObjectURL(file);
-        message.fileName = file.name;
-      }
-
-      messages.push(message);
-      if (conn) {
-        conn.send(message);
-      }
-      renderMessages();
-      playMessageSound();
+      reader.onerror = function() {
+        showAlert('Failed to read file');
+      };
+      reader.readAsDataURL(file);
 
       event.target.value = '';
     }
@@ -779,11 +777,9 @@
         if (msg.type === 'text') {
           messageContent += msg.text;
         } else if (msg.type === 'gif' || msg.type === 'image') {
-          messageContent += `<br><img src="${msg.type === 'gif' ? msg.text : msg.fileUrl}" alt="Media">`;
+          messageContent += `<br><img src="${msg.fileUrl}" alt="Media">`;
         } else if (msg.type === 'video') {
           messageContent += `<br><video src="${msg.fileUrl}" controls></video>`;
-        } else if (msg.type === 'document') {
-          messageContent += `<br><a href="${msg.fileUrl}" download="${msg.fileName}">${msg.fileName}</a>`;
         }
 
         messageDiv.innerHTML = messageContent;

@@ -762,7 +762,7 @@
         loginTab.style.display = 'none';
         chatTab.style.display = 'inline-block';
         logoutTab.style.display = 'inline-block';
-        clearChatBtn.style.display = currentUser.username === 'Admin' ? 'block' : 'none';
+        clearChatBtn.style.display = currentUser.username === 'Clonelis_png' ? 'block' : 'none';
       } else {
         loginTab.style.display = 'inline-block';
         chatTab.style.display = 'none';
@@ -808,8 +808,8 @@
       const file = event.target.files[0];
       if (!file || !currentUser) return;
 
-      const maxImageSize = 2 * 1024 * 1024; // 2MB
-      const maxVideoSize = 5 * 1024 * 1024; // 5MB
+      const maxImageSize = 5 * 1024 * 1024; // 5MB
+      const maxVideoSize = 20 * 1024 * 1024; // 20MB
       if (file.type.startsWith('image/') && file.size > maxImageSize) {
         showAlert('Image file is too large (max 2MB)');
         event.target.value = '';

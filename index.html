@@ -60,7 +60,7 @@
       align-items: center;
       z-index: 1000;
     }
-    .modal-image, .modal-video {
+    .modal-image {
       max-width: 90%;
       max-height: 90%;
       animation: fadeIn 0.5s ease;
@@ -295,13 +295,19 @@
       font-weight: 600;
       color: #3399ff;
     }
-    .chat-message img, .chat-message video {
+    .chat-message img {
       max-width: 300px;
       max-height: 300px;
       margin-top: 5px;
       border-radius: 5px;
       border: 1px solid #007bff;
-      cursor: pointer;
+    }
+    .chat-message video {
+      max-width: 300px;
+      max-height: 300px;
+      margin-top: 5px;
+      border-radius: 5px;
+      border: 1px solid #007bff;
     }
     .chat-message a {
       color: #66b3ff;
@@ -312,7 +318,7 @@
     .chat-message a:hover {
       text-decoration: underline;
     }
-    .chat-message .copy-btn, .chat-message .edit-btn {
+    .chat-message .copy-btn {
       position: absolute;
       top: 8px;
       right: 8px;
@@ -322,21 +328,13 @@
       display: flex;
       align-items: center;
     }
-    .chat-message .edit-btn {
-      right: 40px;
-    }
-    .chat-message .copy-btn:hover, .chat-message .edit-btn:hover {
+    .chat-message .copy-btn:hover {
       background-color: #0056b3;
     }
-    .chat-message .copy-btn svg, .chat-message .edit-btn svg {
+    .chat-message .copy-btn svg {
       fill: white;
       width: 16px;
       height: 16px;
-    }
-    .chat-message .edited-label {
-      font-size: 12px;
-      color: #99ccff;
-      margin-top: 5px;
     }
     .chat-input {
       display: flex;
@@ -407,7 +405,6 @@
       display: flex;
       gap: 10px;
       align-items: center;
-      flex-wrap: wrap;
     }
     .peer-connect input {
       padding: 10px;
@@ -440,35 +437,11 @@
       font-size: 14px;
       margin-bottom: 10px;
     }
-    .group-container {
-      margin-bottom: 15px;
-      background-color: #003366;
-      padding: 15px;
-      border-radius: 5px;
-      border: 1px solid #007bff;
-    }
-    .group-container input {
-      margin-right: 10px;
-    }
-    .group-container button {
-      margin-left: 10px;
-    }
-    .screen-share-container {
-      display: none;
-      margin-top: 10px;
-    }
-    .screen-share-video {
-      max-width: 100%;
-      max-height: 200px;
-      border-radius: 5px;
-      border: 1px solid #007bff;
-    }
   </style>
 </head>
 <body>
   <audio id="messageSound" src="https://freesound.org/data/previews/256/256458_4770666-lq.mp3"></audio>
   <audio id="remoteAudio" autoplay></audio>
-  <video id="screenShareVideo" class="screen-share-video" autoplay></video>
   <div class="nav">
     <a href="#" class="nav-item active" onclick="showTab('home')">Home</a>
     <a href="#" class="nav-item" onclick="showTab('info')">Info</a>
@@ -479,9 +452,8 @@
     <button class="secret-btn" onclick="toggleModal()">🐱</button>
   </div>
 
-  <div class="modal-overlay" id="imageModal" onclick="closeMediaModal()">
-    <img src="" class="modal-image" id="modalMediaImage" style="display: none;" alt="Media">
-    <video src="" class="modal-video" id="modalMediaVideo" controls style="display: none;"></video>
+  <div class="modal-overlay" id="imageModal" onclick="toggleModal()">
+    <img src="https://raw.githubusercontent.com/Clonelis/Neptunehub/refs/heads/main/cat.png" class="modal-image" alt="Secret Cat">
   </div>
 
   <div id="home-content" class="tab-content">
@@ -514,8 +486,6 @@
         <li>Regular updates</li>
         <li>User-friendly interface</li>
         <li>High-performance scripts</li>
-        <li>Group chats</li>
-        <li>Screen sharing</li>
       </ul>
       <h3>How to use:</h3>
       <p>Simply copy the script from the Home tab and execute it in your preferred executor.</p>
@@ -528,14 +498,14 @@
     </div>
     <div class="info-content">
       <h3>Access Your Account</h3>
-      <div class="login-form">
+      <form class="login-form" onsubmit="handleLogin(event)">
         <label for="username">Username:</label><br>
         <input type="text" id="username" name="username" required><br>
         <label for="password">Password:</label><br>
         <input type="password" id="password" name="password" required><br>
-        <button onclick="handleLogin()">Login</button>
+        <button type="submit">Login</button>
         <p id="error-message" class="error-message" style="display: none;"></p>
-      </div>
+      </form>
     </div>
   </div>
 
@@ -544,26 +514,14 @@
       <span class="title">NeptuneHub Chat</span>
     </div>
     <div class="chat-container">
-      <div class="group-container">
-        <input type="text" id="group-name" placeholder="Group Name">
-        <input type="text" id="group-peer-ids" placeholder="Enter up to 5 Peer IDs (comma-separated)">
-        <button onclick="createGroup()">Create Group</button>
-        <p id="group-status" class="call-status"></p>
-      </div>
       <div class="peer-connect">
         <span class="peer-id-display" id="peer-id">Your Peer ID: Not connected</span>
         <input type="text" id="peer-connect-input" placeholder="Enter friend's Peer ID">
         <button onclick="connectToPeer()">Connect</button>
         <button id="call-btn" onclick="startCall()" disabled>Call</button>
-        <button id="mute-btn" onclick="toggleMute()" style="display: none;">Mute</button>
         <button id="hangup-btn" onclick="endCall()" style="display: none;">Hang Up</button>
-        <button id="screen-share-btn" onclick="startScreenShare()" disabled>Share Screen</button>
-        <button id="stop-screen-share-btn" onclick="stopScreenShare()" style="display: none;">Stop Share</button>
       </div>
       <div class="call-status" id="call-status"></div>
-      <div class="screen-share-container" id="screen-share-container">
-        <video id="localScreenShareVideo" class="screen-share-video" autoplay muted></video>
-      </div>
       <button class="clear-chat-btn" id="clear-chat-btn" onclick="clearChat()">Clear Chat</button>
       <div class="chat-messages" id="chat-messages"></div>
       <div class="chat-input">
@@ -589,15 +547,10 @@
     let currentUser = null;
     let messages = [];
     let peer = null;
-    let connections = [];
+    let conn = null;
     let call = null;
-    let groupCall = null;
-    let isMuted = false;
-    let screenShareStream = null;
     const messageSound = document.getElementById('messageSound');
     const remoteAudio = document.getElementById('remoteAudio');
-    const screenShareVideo = document.getElementById('screenShareVideo');
-    const localScreenShareVideo = document.getElementById('localScreenShareVideo');
 
     const users = [
       { username: 'Clonelis_png', password: 'Clonelis3123124' },
@@ -624,11 +577,10 @@
       peer.on('open', function(id) {
         document.getElementById('peer-id').textContent = `Your Peer ID: ${id}`;
         document.getElementById('call-btn').disabled = false;
-        document.getElementById('screen-share-btn').disabled = false;
       });
       peer.on('connection', function(connection) {
-        connections.push(connection);
-        connection.on('data', function(data) {
+        conn = connection;
+        conn.on('data', function(data) {
           receiveMessage(data);
         });
         showAlert('Connected to peer!');
@@ -640,17 +592,10 @@
           .then(function(stream) {
             call.answer(stream);
             call.on('stream', function(remoteStream) {
-              if (remoteStream.getVideoTracks().length > 0) {
-                screenShareVideo.srcObject = remoteStream;
-                document.getElementById('screen-share-container').style.display = 'block';
-              } else {
-                remoteAudio.srcObject = remoteStream;
-              }
+              remoteAudio.srcObject = remoteStream;
               document.getElementById('call-status').textContent = 'Call Connected';
               document.getElementById('call-btn').style.display = 'none';
-              document.getElementById('mute-btn').style.display = 'inline-block';
               document.getElementById('hangup-btn').style.display = 'inline-block';
-              addCallStatusMessage('Call Started');
             });
             call.on('close', function() {
               endCall();
@@ -667,37 +612,7 @@
       peer.on('error', function(err) {
         showAlert('Peer connection error: ' + err);
         document.getElementById('call-btn').disabled = true;
-        document.getElementById('screen-share-btn').disabled = true;
       });
-    }
-
-    function createGroup() {
-      const groupName = document.getElementById('group-name').value.trim();
-      const peerIds = document.getElementById('group-peer-ids').value.split(',').map(id => id.trim()).filter(id => id);
-      if (peerIds.length > 5) {
-        showAlert('Group cannot have more than 5 members');
-        return;
-      }
-      if (!groupName) {
-        showAlert('Please enter a group name');
-        return;
-      }
-      connections.forEach(conn => conn.close());
-      connections = [];
-      peerIds.forEach(peerId => {
-        const conn = peer.connect(peerId);
-        conn.on('open', function() {
-          connections.push(conn);
-          conn.on('data', function(data) {
-            receiveMessage(data);
-          });
-          showAlert(`Connected to ${peerId} in group ${groupName}`);
-        });
-        conn.on('error', function(err) {
-          showAlert(`Failed to connect to ${peerId}: ${err}`);
-        });
-      });
-      document.getElementById('group-status').textContent = `Group ${groupName} created with ${peerIds.length} members`;
     }
 
     function connectToPeer() {
@@ -706,12 +621,10 @@
         showAlert('Please enter a valid Peer ID');
         return;
       }
-      const conn = peer.connect(peerId);
+      conn = peer.connect(peerId);
       conn.on('open', function() {
-        connections.push(conn);
         showAlert('Connected to peer!');
         document.getElementById('call-btn').disabled = false;
-        document.getElementById('screen-share-btn').disabled = false;
       });
       conn.on('data', function(data) {
         receiveMessage(data);
@@ -719,40 +632,29 @@
       conn.on('error', function(err) {
         showAlert('Connection error: ' + err);
         document.getElementById('call-btn').disabled = true;
-        document.getElementById('screen-share-btn').disabled = true;
       });
     }
 
     function startCall() {
-      if (connections.length === 0) {
-        showAlert('Please connect to at least one peer first');
+      if (!conn) {
+        showAlert('Please connect to a peer first');
         return;
       }
       navigator.mediaDevices.getUserMedia({ audio: true })
         .then(function(stream) {
-          groupCall = connections.map(conn => {
-            const call = peer.call(conn.peer, stream);
-            call.on('stream', function(remoteStream) {
-              if (remoteStream.getVideoTracks().length > 0) {
-                screenShareVideo.srcObject = remoteStream;
-                document.getElementById('screen-share-container').style.display = 'block';
-              } else {
-                remoteAudio.srcObject = remoteStream;
-              }
-              document.getElementById('call-status').textContent = 'Call Connected';
-              document.getElementById('call-btn').style.display = 'none';
-              document.getElementById('mute-btn').style.display = 'inline-block';
-              document.getElementById('hangup-btn').style.display = 'inline-block';
-              addCallStatusMessage('Call Started');
-            });
-            call.on('close', function() {
-              endCall();
-            });
-            call.on('error', function(err) {
-              showAlert('Call error: ' + err);
-              endCall();
-            });
-            return call;
+          call = peer.call(conn.peer, stream);
+          call.on('stream', function(remoteStream) {
+            remoteAudio.srcObject = remoteStream;
+            document.getElementById('call-status').textContent = 'Call Connected';
+            document.getElementById('call-btn').style.display = 'none';
+            document.getElementById('hangup-btn').style.display = 'inline-block';
+          });
+          call.on('close', function() {
+            endCall();
+          });
+          call.on('error', function(err) {
+            showAlert('Call error: ' + err);
+            endCall();
           });
           document.getElementById('call-status').textContent = 'Calling...';
         })
@@ -761,93 +663,15 @@
         });
     }
 
-    function toggleMute() {
-      isMuted = !isMuted;
-      if (call) {
-        call.sender.getAudioTracks().forEach(track => track.enabled = !isMuted);
-      }
-      if (groupCall) {
-        groupCall.forEach(c => c.sender.getAudioTracks().forEach(track => track.enabled = !isMuted));
-      }
-      document.getElementById('mute-btn').textContent = isMuted ? 'Unmute' : 'Mute';
-      showAlert(isMuted ? 'Microphone muted' : 'Microphone unmuted');
-    }
-
-    function startScreenShare() {
-      navigator.mediaDevices.getDisplayMedia({ video: true })
-        .then(function(stream) {
-          screenShareStream = stream;
-          localScreenShareVideo.srcObject = stream;
-          document.getElementById('screen-share-container').style.display = 'block';
-          if (connections.length > 0) {
-            groupCall = connections.map(conn => {
-              const call = peer.call(conn.peer, stream);
-              call.on('stream', function(remoteStream) {
-                screenShareVideo.srcObject = remoteStream;
-              });
-              call.on('close', function() {
-                stopScreenShare();
-              });
-              call.on('error', function(err) {
-                showAlert('Screen share error: ' + err);
-                stopScreenShare();
-              });
-              return call;
-            });
-          }
-          document.getElementById('screen-share-btn').style.display = 'none';
-          document.getElementById('stop-screen-share-btn').style.display = 'inline-block';
-          showAlert('Screen sharing started');
-        })
-        .catch(function(err) {
-          showAlert('Screen share access denied: ' + err);
-        });
-    }
-
-    function stopScreenShare() {
-      if (screenShareStream) {
-        screenShareStream.getTracks().forEach(track => track.stop());
-        screenShareStream = null;
-      }
-      localScreenShareVideo.srcObject = null;
-      screenShareVideo.srcObject = null;
-      document.getElementById('screen-share-container').style.display = 'none';
-      document.getElementById('screen-share-btn').style.display = 'inline-block';
-      document.getElementById('stop-screen-share-btn').style.display = 'none';
-      showAlert('Screen sharing stopped');
-    }
-
     function endCall() {
       if (call) {
         call.close();
         call = null;
       }
-      if (groupCall) {
-        groupCall.forEach(c => c.close());
-        groupCall = null;
-      }
-      stopScreenShare();
       remoteAudio.srcObject = null;
       document.getElementById('call-status').textContent = 'Call Ended';
       document.getElementById('call-btn').style.display = 'inline-block';
-      document.getElementById('mute-btn').style.display = 'none';
       document.getElementById('hangup-btn').style.display = 'none';
-      addCallStatusMessage('Call Ended');
-    }
-
-    function addCallStatusMessage(status) {
-      if (!currentUser) return;
-      const message = {
-        username: 'System',
-        text: status,
-        timestamp: new Date().toLocaleTimeString(),
-        type: 'system'
-      };
-      messages.push(message);
-      if (connections.length > 0) {
-        connections.forEach(conn => conn.send(message));
-      }
-      renderMessages();
     }
 
     function showAlert(message) {
@@ -882,37 +706,7 @@
       } else {
         modal.style.display = 'flex';
         modal.style.animation = 'fadeIn 0.3s ease';
-        document.getElementById('modalMediaImage').src = 'https://raw.githubusercontent.com/Clonelis/Neptunehub/refs/heads/main/cat.png';
-        document.getElementById('modalMediaImage').style.display = 'block';
-        document.getElementById('modalMediaVideo').style.display = 'none';
       }
-    }
-
-    function openMediaModal(url, type) {
-      const modal = document.getElementById('imageModal');
-      const modalImage = document.getElementById('modalMediaImage');
-      const modalVideo = document.getElementById('modalMediaVideo');
-      modal.style.display = 'flex';
-      modal.style.animation = 'fadeIn 0.3s ease';
-      if (type === 'image' || type === 'gif') {
-        modalImage.src = url;
-        modalImage.style.display = 'block';
-        modalVideo.style.display = 'none';
-      } else if (type === 'video') {
-        modalVideo.src = url;
-        modalVideo.style.display = 'block';
-        modalImage.style.display = 'none';
-      }
-    }
-
-    function closeMediaModal() {
-      const modal = document.getElementById('imageModal');
-      modal.style.animation = 'fadeOut 0.3s ease';
-      setTimeout(() => {
-        modal.style.display = 'none';
-        document.getElementById('modalMediaImage').src = '';
-        document.getElementById('modalMediaVideo').src = '';
-      }, 300);
     }
 
     function copyScript() {
@@ -924,7 +718,8 @@
       });
     }
 
-    function handleLogin() {
+    function handleLogin(event) {
+      event.preventDefault();
       const username = document.getElementById('username').value;
       const password = document.getElementById('password').value;
       const errorMessage = document.getElementById('error-message');
@@ -948,9 +743,11 @@
       renderMessages();
       updateNav();
       showTab('home');
-      connections.forEach(conn => conn.close());
-      connections = [];
-      if (call || groupCall) {
+      if (conn) {
+        conn.close();
+        conn = null;
+      }
+      if (call) {
         endCall();
       }
     }
@@ -972,7 +769,6 @@
         logoutTab.style.display = 'none';
         clearChatBtn.style.display = 'none';
         document.getElementById('call-btn').disabled = true;
-        document.getElementById('screen-share-btn').disabled = true;
       }
     }
 
@@ -982,12 +778,10 @@
       if (!messageText || !currentUser) return;
 
       const message = {
-        id: Date.now() + Math.random(),
         username: currentUser.username,
         text: messageText,
         timestamp: new Date().toLocaleTimeString(),
-        type: 'text',
-        edited: false
+        type: 'text'
       };
 
       if (messageText.match(/\.(gif)$/i) || messageText.includes('giphy.com')) {
@@ -996,29 +790,12 @@
       }
 
       messages.push(message);
-      if (connections.length > 0) {
-        connections.forEach(conn => conn.send(message));
+      if (conn) {
+        conn.send(message);
       }
       renderMessages();
       input.value = '';
       playMessageSound();
-    }
-
-    function editMessage(messageId) {
-      const message = messages.find(msg => msg.id === messageId);
-      if (!message || message.username !== currentUser.username) return;
-
-      const newText = prompt('Edit your message:', message.text);
-      if (newText && newText.trim() && newText !== message.text) {
-        message.text = newText.trim();
-        message.edited = true;
-        message.timestamp = new Date().toLocaleTimeString();
-        if (connections.length > 0) {
-          connections.forEach(conn => conn.send(message));
-        }
-        renderMessages();
-        showAlert('Message edited');
-      }
     }
 
     function receiveMessage(data) {
@@ -1031,15 +808,15 @@
       const file = event.target.files[0];
       if (!file || !currentUser) return;
 
-      const maxImageSize = 5 * 1024 * 1024; // Increased to 5MB
-      const maxVideoSize = 10 * 1024 * 1024; // Increased to 10MB
+      const maxImageSize = 2 * 1024 * 1024; // 2MB
+      const maxVideoSize = 5 * 1024 * 1024; // 5MB
       if (file.type.startsWith('image/') && file.size > maxImageSize) {
-        showAlert('Image file is too large (max 5MB)');
+        showAlert('Image file is too large (max 2MB)');
         event.target.value = '';
         return;
       }
       if (file.type.startsWith('video/') && file.size > maxVideoSize) {
-        showAlert('Video file is too large (max 10MB)');
+        showAlert('Video file is too large (max 5MB)');
         event.target.value = '';
         return;
       }
@@ -1052,16 +829,15 @@
       const reader = new FileReader();
       reader.onload = function(e) {
         const message = {
-          id: Date.now() + Math.random(),
           username: currentUser.username,
           timestamp: new Date().toLocaleTimeString(),
           type: file.type.startsWith('image/') ? 'image' : 'video',
-          fileUrl: e.target.result
+          fileUrl: e.target.result // Base64 string
         };
 
         messages.push(message);
-        if (connections.length > 0) {
-          connections.forEach(conn => conn.send(message));
+        if (conn) {
+          conn.send(message);
         }
         renderMessages();
         playMessageSound();
@@ -1121,11 +897,9 @@
         if (msg.type === 'text') {
           messageContent += msg.text;
         } else if (msg.type === 'gif' || msg.type === 'image') {
-          messageContent += `<br><img src="${msg.fileUrl}" alt="Media" onclick="openMediaModal('${msg.fileUrl}', '${msg.type}')">`;
+          messageContent += `<br><img src="${msg.fileUrl}" alt="Media">`;
         } else if (msg.type === 'video') {
-          messageContent += `<br><video src="${msg.fileUrl}" controls onclick="openMediaModal('${msg.fileUrl}', '${msg.type}')"></video>`;
-        } else if (msg.type === 'system') {
-          messageContent = `<span>System</span> [${msg.timestamp}]: ${msg.text}`;
+          messageContent += `<br><video src="${msg.fileUrl}" controls></video>`;
         }
 
         messageContent += `
@@ -1134,19 +908,6 @@
               <path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Z"/>
             </svg>
           </button>`;
-
-        if (msg.type === 'text' && msg.username === currentUser?.username) {
-          messageContent += `
-            <button class="edit-btn" onclick='editMessage(${msg.id})'>
-              <svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px">
-                <path d="M200-200h57l391-391-57-57-391 391v57Zm-80 80v-170l528-527q12-11 27-17t30-6q16 0 30.5 6t25.5 18l57 57q12 11 17.5 26t5.5 30q0 15-5.5 29.5T809-727L282-200H120Zm640-584-56-56 56 56Zm-141 85-28-29 57 57-29-28Z"/>
-              </svg>
-            </button>`;
-        }
-
-        if (msg.edited) {
-          messageContent += `<div class="edited-label">(Edited)</div>`;
-        }
 
         messageDiv.innerHTML = messageContent;
         chatMessages.appendChild(messageDiv);

@@ -68,42 +68,6 @@
       box-shadow: 0 0 20px rgba(0, 123, 255, 0.5);
       border: 2px solid #007bff;
     }
-    .call-modal {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background-color: #003366;
-      padding: 20px;
-      border-radius: 10px;
-      border: 1px solid #007bff;
-      z-index: 1001;
-      display: none;
-      text-align: center;
-    }
-    .call-modal p {
-      margin-bottom: 15px;
-      font-size: 16px;
-    }
-    .call-modal button {
-      background-color: #007bff;
-      color: white;
-      padding: 10px 20px;
-      border-radius: 5px;
-      margin: 0 10px;
-      font-weight: 500;
-      transition: all 0.3s ease;
-    }
-    .call-modal button:hover {
-      background-color: #0056b3;
-      transform: scale(1.05);
-    }
-    .call-modal .reject-btn {
-      background-color: #ff4d4d;
-    }
-    .call-modal .reject-btn:hover {
-      background-color: #cc0000;
-    }
     .nav-item {
       color: white;
       margin-right: 15px;
@@ -327,11 +291,6 @@
       flex-direction: column;
       position: relative;
     }
-    .chat-message.system {
-      background-color: #00264d;
-      font-style: italic;
-      text-align: center;
-    }
     .chat-message span {
       font-weight: 600;
       color: #3399ff;
@@ -359,58 +318,23 @@
     .chat-message a:hover {
       text-decoration: underline;
     }
-    .chat-message .copy-btn, .chat-message .edit-btn {
+    .chat-message .copy-btn {
       position: absolute;
       top: 8px;
+      right: 8px;
       background-color: #007bff;
       padding: 5px;
       border-radius: 5px;
       display: flex;
       align-items: center;
     }
-    .chat-message .copy-btn {
-      right: 8px;
-    }
-    .chat-message .edit-btn {
-      right: 32px;
-    }
-    .chat-message .copy-btn:hover, .chat-message .edit-btn:hover {
+    .chat-message .copy-btn:hover {
       background-color: #0056b3;
     }
-    .chat-message .copy-btn svg, .chat-message .edit-btn svg {
+    .chat-message .copy-btn svg {
       fill: white;
       width: 16px;
       height: 16px;
-    }
-    .chat-message .edit-input {
-      margin-top: 5px;
-      padding: 5px;
-      border: 1px solid #007bff;
-      border-radius: 5px;
-      background-color: #003366;
-      color: white;
-      width: 100%;
-      box-sizing: border-box;
-    }
-    .chat-message .edit-actions {
-      margin-top: 5px;
-      display: flex;
-      gap: 10px;
-    }
-    .chat-message .edit-actions button {
-      background-color: #007bff;
-      color: white;
-      padding: 5px 10px;
-      border-radius: 5px;
-    }
-    .chat-message .edit-actions button:hover {
-      background-color: #0056b3;
-    }
-    .chat-message .edit-actions .cancel-btn {
-      background-color: #ff4d4d;
-    }
-    .chat-message .edit-actions .cancel-btn:hover {
-      background-color: #cc0000;
     }
     .chat-input {
       display: flex;
@@ -481,7 +405,6 @@
       display: flex;
       gap: 10px;
       align-items: center;
-      flex-wrap: wrap;
     }
     .peer-connect input {
       padding: 10px;
@@ -514,37 +437,23 @@
       font-size: 14px;
       margin-bottom: 10px;
     }
-    .screen-share-video {
-      max-width: 100%;
-      border-radius: 5px;
-      border: 1px solid #007bff;
-      margin: 10px auto;
-      display: none;
-    }
   </style>
 </head>
 <body>
   <audio id="messageSound" src="https://freesound.org/data/previews/256/256458_4770666-lq.mp3"></audio>
   <audio id="remoteAudio" autoplay></audio>
-  <video id="screenShareVideo" class="screen-share-video" autoplay></video>
   <div class="nav">
-    <a href="#" class="nav-item active" onclick="showTab('home')">($)</a>
+    <a href="#" class="nav-item active" onclick="showTab('home')">Home</a>
     <a href="#" class="nav-item" onclick="showTab('info')">Info</a>
-    <a href="https://discord.gg/VSTn7pFNvUN" class="nav-item" target="_blank">Discord</a>
+    <a href="https://discord.gg/VUTn7FNvUN" class="nav-item" target="_blank">Discord</a>
     <a href="#" class="nav-item" onclick="showTab('login')" id="login-tab">Login</a>
     <a href="#" class="nav-item" onclick="showTab('chat')" id="chat-tab" style="display: none;">Chat</a>
     <a href="#" class="nav-item" onclick="logout()" id="logout-tab" style="display: none;">Logout</a>
     <button class="secret-btn" onclick="toggleModal()">🐱</button>
   </div>
 
-  <div class="modal-overlay" id="imageModal">
-    <img src="https://raw.githubusercontent.com/Clonelis/Neptunehub/refs/heads/call.png" class="modal-image" alt="Secret Image">
-  </div>
-
-  <div class="call-modal" id="callModal">
-    <p>Incoming call from peer</p>
-    <button onclick="acceptCallModal()">Accept</button>
-    <button class="reject-btn" onclick="rejectCallModal()">Reject</button>
+  <div class="modal-overlay" id="imageModal" onclick="toggleModal()">
+    <img src="https://raw.githubusercontent.com/Clonelis/Neptunehub/refs/heads/main/cat.png" class="modal-image" alt="Secret Cat">
   </div>
 
   <div id="home-content" class="tab-content">
@@ -552,7 +461,7 @@
       <span class="title">NeptuneHub</span>
       <span class="subtitle">Best universal hub</span>
     </div>
-    <img src="https://raw.githubusercontent.com/Clonelis/Neptunehub/refs/heads/main/Neptt2.png" alt="NeptuneHub Banner" class="hero-image">
+    <img src="https://raw.githubusercontent.com/Clonelis/Neptunehub/refs/heads/main/Neptt2.png" alt="NeptuneHub Banner" class="hub-image">
     <div class="script">
       <div class="script-box">
         <span id="script">loadstring(game:HttpGet("https://raw.githubusercontent.com/Clonelis/Scripts/refs/heads/main/NeptuneHub.lua"))()</span>
@@ -611,8 +520,6 @@
         <button onclick="connectToPeer()">Connect</button>
         <button id="call-btn" onclick="startCall()" disabled>Call</button>
         <button id="hangup-btn" onclick="endCall()" style="display: none;">Hang Up</button>
-        <button id="share-screen-btn" onclick="startScreenShare()" style="display: none;">Share Screen</button>
-        <button id="stop-share-btn" onclick="stopScreenShare()" style="display: none;">Stop Sharing</button>
       </div>
       <div class="call-status" id="call-status"></div>
       <button class="clear-chat-btn" id="clear-chat-btn" onclick="clearChat()">Clear Chat</button>
@@ -642,11 +549,8 @@
     let peer = null;
     let conn = null;
     let call = null;
-    let screenStream = null;
     const messageSound = document.getElementById('messageSound');
     const remoteAudio = document.getElementById('remoteAudio');
-    const screenShareVideo = document.getElementById('screenShareVideo');
-    let editingMessageIndex = null;
 
     const users = [
       { username: 'Clonelis_png', password: 'Clonelis3123124' },
@@ -677,18 +581,33 @@
       peer.on('connection', function(connection) {
         conn = connection;
         conn.on('data', function(data) {
-          if (data.type === 'message') {
-            receiveMessage(data);
-          } else if (data.type === 'edit') {
-            updateEditedMessage(data);
-          }
+          receiveMessage(data);
         });
         showAlert('Connected to peer!');
         document.getElementById('call-btn').disabled = false;
       });
       peer.on('call', function(incomingCall) {
         call = incomingCall;
-        document.getElementById('callModal').style.display = 'block';
+        navigator.mediaDevices.getUserMedia({ audio: true })
+          .then(function(stream) {
+            call.answer(stream);
+            call.on('stream', function(remoteStream) {
+              remoteAudio.srcObject = remoteStream;
+              document.getElementById('call-status').textContent = 'Call Connected';
+              document.getElementById('call-btn').style.display = 'none';
+              document.getElementById('hangup-btn').style.display = 'inline-block';
+            });
+            call.on('close', function() {
+              endCall();
+            });
+            call.on('error', function(err) {
+              showAlert('Call error: ' + err);
+              endCall();
+            });
+          })
+          .catch(function(err) {
+            showAlert('Microphone access denied: ' + err);
+          });
       });
       peer.on('error', function(err) {
         showAlert('Peer connection error: ' + err);
@@ -708,15 +627,11 @@
         document.getElementById('call-btn').disabled = false;
       });
       conn.on('data', function(data) {
-        if (data.type === 'message') {
-          receiveMessage(data);
-        } else if (data.type === 'edit') {
-          updateEditedMessage(data);
-        }
+        receiveMessage(data);
       });
       conn.on('error', function(err) {
-        showAlert('Connection error: ' + err.message);
-        document.getElementById('call-btn').value = true;
+        showAlert('Connection error: ' + err);
+        document.getElementById('call-btn').disabled = true;
       });
     }
 
@@ -729,119 +644,23 @@
         .then(function(stream) {
           call = peer.call(conn.peer, stream);
           call.on('stream', function(remoteStream) {
-            handleRemoteStream(remoteStream);
-            document.getElementById('call-status').value = 'Connected to a peer!';
+            remoteAudio.srcObject = remoteStream;
+            document.getElementById('call-status').textContent = 'Call Connected';
             document.getElementById('call-btn').style.display = 'none';
             document.getElementById('hangup-btn').style.display = 'inline-block';
-            document.getElementById('share-screen-btn').style.display = 'inline-block';
-            addCallStatusMessage('Call started');
           });
           call.on('close', function() {
             endCall();
           });
           call.on('error', function(err) {
-            showAlert('Call error: ' + err.message);
+            showAlert('Call error: ' + err);
             endCall();
           });
-          document.getElementById('call-status').value = 'Calling...';
+          document.getElementById('call-status').textContent = 'Calling...';
         })
         .catch(function(err) {
-          showAlert('Microphone access denied: ' + err.message);
+          showAlert('Microphone access denied: ' + err);
         });
-    }
-
-    function acceptCallModal() {
-      document.getElementById('callModal').style.display = 'none';
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(function(stream) {
-          call.answer(stream);
-          call.on('stream', function(remoteStream) {
-            handleRemoteStream(remoteStream);
-            document.getElementById('call-status').value = 'Call connected';
-            document.getElementById('call-btn').style.display = 'none';
-            document.getElementById('hangup-btn').style.display = 'inline-block';
-            document.getElementById('share-screen-btn').style.display = 'inline-block';
-            addCallStatusMessage('Call started');
-          });
-          call.on('close', function() {
-            endCall();
-          });
-          call.on('error', function(err) {
-            showAlert('Call error: ' + err.message);
-            endCall();
-          });
-        })
-        .catch(function(err) {
-          showAlert('Microphone access denied: ' + err.message);
-          rejectCallModal();
-        });
-    }
-
-    function rejectCallModal() {
-      document.getElementById('callModal').style.display = 'none';
-      if (call) {
-        call.close();
-        call = null;
-      }
-      showAlert('Call rejected');
-    }
-
-    function startScreenShare() {
-      navigator.mediaDevices.getDisplayMedia({ video: true })
-        .then(function(stream) {
-          screenStream = stream;
-          if (call) {
-            call.peerConnection.getSenders().forEach(sender => {
-              if (sender.track && sender.track.kind === 'video') {
-                sender.replaceTrack(stream.getVideoTracks()[0]);
-              }
-            });
-            screenShareVideo.srcObject = stream;
-            screenShareVideo.style.display = 'block';
-            document.getElementById('share-screen-btn').style.display = 'none';
-            document.getElementById('stop-share-btn').style.display = 'inline-block';
-          }
-          stream.getVideoTracks()[0].onended = function() {
-            stopScreenShare();
-          });
-        })
-        .catch(function(err) {
-          showAlert('Screen sharing denied: ' + err.message);
-        });
-    }
-
-    function stopScreenShare() {
-      if (screenStream) {
-        screenStream.getTracks().forEach(track => track.stop());
-        screenShareVideo.srcObject = null;
-        screenShareVideo.style.display = 'none';
-        screenStream = null;
-        document.getElementById('share-screen-btn').style.display = 'inline-block';
-        document.getElementById('stop-share-btn').style.display = 'none';
-        // Restore audio-only stream
-        if (call) {
-          navigator.mediaDevices.getUserMedia({ audio: true })
-            .then(function(stream) {
-              call.peerConnection.getSenders().forEach(sender => {
-                if (sender.track && sender.track.kind === 'video') {
-                  sender.replaceTrack(null);
-                }
-              });
-            })
-            .catch(err => console.error console.log('Failed to restore audio stream:', err));
-          });
-        }
-    }
-
-    function handleRemoteStream(stream) {
-      if (stream.getVideoTracks().length > 0) {
-        screenShareVideo.srcObject = stream;
-        screenShareVideo.style.display = 'block';
-      } else {
-        remoteAudio.srcObject = stream;
-        screenShareVideo.srcObject = null;
-        screenShareVideo.style.display = 'none';
-      }
     }
 
     function endCall() {
@@ -849,32 +668,14 @@
         call.close();
         call = null;
       }
-      if (screenStream) {
-        screenStream.getTracks().forEach(track => track.stop());
-        screenStream = null;
-      }
-      remoteAudio.srcObject = null);
-      screenShareVideo.srcObject = null;
-      screenShareVideo.style.display = 'none';
-      document.getElementById('call-status').value = 'Call ended';
-      document.getElementById('call-btn').value = 'inline-block';
+      remoteAudio.srcObject = null;
+      document.getElementById('call-status').textContent = 'Call Ended';
+      document.getElementById('call-btn').style.display = 'inline-block';
       document.getElementById('hangup-btn').style.display = 'none';
-      document.getElementById('share-screen-btn').style.display = 'none';
-      document.getElementById('stop-share-btn').style.display = 'none';
-      addCallStatusMessage('Call ended');
-    }
-
-    function addCallStatusMessage(message) {
-      messages.push({
-        type: 'system',
-        content: message,
-        timestamp: new Date().toLocaleTimeString()
-      });
-      renderMessages();
     }
 
     function showAlert(message) {
-      const alertBox = document.createElementById('div');
+      const alertBox = document.createElement('div');
       alertBox.textContent = message;
       alertBox.style.position = 'fixed';
       alertBox.style.bottom = '20px';
@@ -890,9 +691,9 @@
       setTimeout(() => {
         alertBox.style.animation = 'fadeOut 0.3s ease';
         setTimeout(() => {
-          alertBox.remove();
+          document.body.removeChild(alertBox);
         }, 300);
-      }, 3000);
+      }, 2000);
     }
 
     function toggleModal() {
@@ -904,16 +705,16 @@
         }, 300);
       } else {
         modal.style.display = 'flex';
-        modal.style.animation = 'fadeIn 0s ease';
+        modal.style.animation = 'fadeIn 0.3s ease';
       }
     }
 
     function copyScript() {
-      const scriptContent = document.getElementById('script').value;
+      const scriptContent = document.getElementById('script').textContent;
       navigator.clipboard.writeText(scriptContent).then(() => {
         showAlert('Script copied to clipboard!');
       }).catch(err => {
-        console.error('Failed to copy script:', err));
+        console.error('Failed to copy script: ', err);
       });
     }
 
@@ -952,12 +753,12 @@
     }
 
     function updateNav() {
-      const loginTab = document.getElementById('login-tab').value;
-      const chatTab = document.getElementById('chat-tab').value;
-      const logoutTab = document.getElementById('logout-tab').value;
+      const loginTab = document.getElementById('login-tab');
+      const chatTab = document.getElementById('chat-tab');
+      const logoutTab = document.getElementById('logout-tab');
       const clearChatBtn = document.getElementById('clear-chat-btn');
 
-      if (currentChatBtn) {
+      if (currentUser) {
         loginTab.style.display = 'none';
         chatTab.style.display = 'inline-block';
         logoutTab.style.display = 'inline-block';
@@ -967,7 +768,7 @@
         chatTab.style.display = 'none';
         logoutTab.style.display = 'none';
         clearChatBtn.style.display = 'none';
-        document.getElementById('call-btn').value = true;
+        document.getElementById('call-btn').disabled = true;
       }
     }
 
@@ -977,23 +778,20 @@
       if (!messageText || !currentUser) return;
 
       const message = {
-        id: Date.now().toString(),
-        type: 'message',
-        content: messageText,
         username: currentUser.username,
         text: messageText,
         timestamp: new Date().toLocaleTimeString(),
-        edited: false
+        type: 'text'
       };
 
-      if (messageText.match(/\.(gif)$/i.test)) {
+      if (messageText.match(/\.(gif)$/i) || messageText.includes('giphy.com')) {
         message.type = 'gif';
         message.fileUrl = messageText;
       }
 
       messages.push(message);
       if (conn) {
-        conn.send({ type: 'message', message });
+        conn.send(message);
       }
       renderMessages();
       input.value = '';
@@ -1001,7 +799,7 @@
     }
 
     function receiveMessage(data) {
-      messages.push(data.message);
+      messages.push(data);
       renderMessages();
       playMessageSound();
     }
@@ -1029,20 +827,17 @@
       }
 
       const reader = new FileReader();
-      reader.onload = function(file) {
+      reader.onload = function(e) {
         const message = {
-          id: Date.now().toString(),
-          type: 'message',
           username: currentUser.username,
           timestamp: new Date().toLocaleTimeString(),
-          contentType: file.type.startsWith('image/') ? 'image' : 'video',
-          fileUrl: e.target.result, // Base64 string
-          edited: false
+          type: file.type.startsWith('image/') ? 'image' : 'video',
+          fileUrl: e.target.result // Base64 string
         };
 
         messages.push(message);
         if (conn) {
-          conn.send({ type: 'message', message });
+          conn.send(message);
         }
         renderMessages();
         playMessageSound();
@@ -1055,52 +850,11 @@
       event.target.value = '';
     }
 
-    function editMessage(index) {
-      if (messages[index].username !== currentUser.username || messages[index].contentType !== 'text') return;
-      editingMessageIndex = index;
-      renderMessages();
-    }
-
-    function saveEditedMessage(index) {
-      const input = document.getElementById(`edit-input-${index}`);
-      const newText = input.value.trim();
-      if (!newText) {
-        cancelEdit();
-        return;
-      }
-      messages[index].text = newText;
-      messages[index].edited = true;
-      if (conn) {
-        conn.send({
-          type: 'edit',
-          id: messages[index].id,
-          text: newText,
-          edited: true
-        });
-      }
-      editingMessageIndex = null;
-      renderMessages();
-    }
-
-    function updateEditedMessage(data) {
-      const index = messages.findIndex(msg => msg.id === data.id);
-      if (index !== -1) {
-        messages[index].text = data.text;
-        messages[index].edited = true;
-        renderMessages();
-      }
-    }
-
-    function cancelEdit() {
-      editingMessageIndex = null;
-      renderMessages();
-    }
-
     function copyMessageContent(message) {
       let content = '';
-      if (message.contentType === 'text') {
+      if (message.type === 'text') {
         content = message.text;
-      } else if (message.contentType === 'gif' || message.contentType === 'image' || message.contentType === 'video') {
+      } else if (message.type === 'gif' || message.type === 'image' || message.type === 'video') {
         content = message.fileUrl;
         if (content.length > 1000) {
           showAlert('Media URL is too large to copy fully. Copied partial URL.');
@@ -1134,40 +888,86 @@
       const isAtBottom = chatMessages.scrollTop + chatMessages.clientHeight >= chatMessages.scrollHeight - 5;
 
       chatMessages.innerHTML = '';
-      messages.forEach((msg, index) => {
+      messages.forEach(msg => {
         const messageDiv = document.createElement('div');
-        messageDiv.className = msg.type === 'system' ? 'chat-message system' : 'chat-message';
+        messageDiv.className = 'chat-message';
         
-        let messageContent = '';
-        if (msg.type === 'system') {
-          messageContent = `[${msg.timestamp}]: ${msg.content}`;
-        } else {
-          messageContent = `<span>${msg.username}</span> [${msg.timestamp}]: `;
-          if (editingMessageIndex === index) {
-            messageContent += `
-              <input type="edit-input" id="edit-input-${msg.id}" value="${msg.text}">
-              <div class="edit-actions">
-                <button onclick="saveEditedMessage(${index})">Save</button>
-                <button class="cancel-btn" onclick="cancelEdit()">Cancel</button>
-              </div>`;
-            } else {
-              if (msg.contentType === 'text') {
-                messageContent += `${msg.text}${msg.edited ? ' (Edited)' : ''}`;
-              } else if (msg.contentType === 'gif' || msg.contentType === 'image') {
-                messageContent += `<br><img src="${msg.fileUrl}" alt="Media">`;
-              } else {
- if (msg.contentType === 'video') {
-                messageContent += `<br><video src="${msg.fileUrl}" controls>`;
-              }
-            }
-            messageContent += `
-              <button class="copy-btn" onclick="copyMessageContent(${JSON.stringify(msg)})">$
-                <svg xmlns="http://www.w3.org/2000" height="16px" viewBox="0 -960 960" width="16px">
-                  <path d="M360-240q-33 0-56.5-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-80h480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Z"/>
-              </svg>
-            </button>`;
-            if (msg.username === currentUser.username && msg.contentType === 'text') {
-              messageContent += `<br> <button class="edit-btn" onclick="editMessage(${index})">$
-                <svg xmlns="http://www.w3.org/2000" height="16px" viewBox="0 -960 960" width="16px">
-                  <path d="M180-180h44l443-443-44-44-443 443v44Zm-60 60v-128l576-576 128-576 128-128-128-576-128-128-576-576-128 128 44 44-84 84-84-84-84 84 84-84 84-84 84-84 84-84 84-84-84 84 84 84-84-84 84-84 84 84-84-84 84 84 84-84 80-84 84 84-80 84 84-80 84 84-84 84-84 84-84-84 84-84-84 84-84-84-84-84 84 84-84-84 84-84 84 84-84 84 84-84 84 84-84 84 84-84 84 84 84-84 84 84 84-84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 84 z84 84 z84 84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z84 z z84 z z84 z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z84 z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z x z z z z z x z z z z x z x z x z x z x z x z x z x z x x x z x x z x x z x x x x x x x x x x x x x x x x x x x x z x x x x x x x x x x x z x x x x x z x x x x x z x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x z x x x z x x x x x z x x x x x z x x x x x z x x x x x z x x x x z x x z x x x z x x x x z x x z x z x z x z x z x x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z z x x z x z x z x z x z x x z x z x z x x z x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x z x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x z x z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z z x z z z z z x z x z x z x z x z x x x z x z x x z z x x z x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x z x z z z z z z z z z z z z z z z z x z z z x z z x z x z x z x z x x x z x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x z x z x x z x z x z x z x z x x x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x x z x z x x z x x x z x x x z x x x x z x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x z x x z x z x x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z z x x z x z z x z x z z x x z x z z x z x z x z x z x z x z x z z x x z x z x z x z z x z x z x z x z x x x z x x x x x x x x x x x x x x x x x x x x z x x z x x x x x x x z x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x z x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x z x x x x x x x x x x x x z x x x x x x z x x x x z x x x x x x x x x x x x x x z x x x z x z x x z x z x x x z x x z x x z x x x x x x x x x x x x x x z x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x z x x x x x x x x x x x z x x z x x x x z x z x x x z x z x x z x z x x x z x z x x z x z x x x z x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x z x x x z x x x x x z x x x x x z x x x x x z x x x x x z x x x x x z x x x x x z x x x x x z x x x z x z x z x x z z x x z x x z x z z x x z x z x z x z z x z x z x x z x x z z x z x z x z x z z x x z x z x z x z z x x z x x z z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x z x x z x z x z x x x z x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x z x x x x z x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x z x x x x x x x x x x x x x x z x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x z x x x x x x x x x x x x x x x x z x x x x x x x x x x x x x z z x z x z x x z z x x z x x z x z z x z x z x x z z x x z x x z z x z x x z z x x z x z x x z x z z x x z x z x z z x x z x z x z z x x z x x z z x z x x z z x x z x z x z z x x z x x z z x z x z x z x z x z z x z x z z x x z x z x z;
- z x z x z z x z x z x z x z x z x z x z x x z x x z x x z x x z x x z x x z x x z x x z x x x z x x z x x x z x x x z x x x z x x x z x x x z x x x x z x x x z x x x x z x x x z x x x x z x x x z x x x x x x x x z x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x z x x x x x x x x x x x x x x z x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x x
+        let messageContent = `<span>${msg.username}</span> [${msg.timestamp}]: `;
+        
+        if (msg.type === 'text') {
+          messageContent += msg.text;
+        } else if (msg.type === 'gif' || msg.type === 'image') {
+          messageContent += `<br><img src="${msg.fileUrl}" alt="Media">`;
+        } else if (msg.type === 'video') {
+          messageContent += `<br><video src="${msg.fileUrl}" controls></video>`;
+        }
+
+        messageContent += `
+          <button class="copy-btn" onclick='copyMessageContent(${JSON.stringify(msg)})'>
+            <svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px">
+              <path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Z"/>
+            </svg>
+          </button>`;
+
+        messageDiv.innerHTML = messageContent;
+        chatMessages.appendChild(messageDiv);
+      });
+
+      if (isAtBottom || messages.length === 0) {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+    }
+
+    function showTab(tabName) {
+      if (isSwitching) return;
+
+      if (tabName === 'chat' && !currentUser) {
+        showTab('login');
+        return;
+      }
+
+      isSwitching = true;
+      document.querySelectorAll('.nav-item').forEach(tab => {
+        tab.classList.add('disabled');
+      });
+
+      document.querySelectorAll('.tab-content').forEach(content => {
+        if (content.style.display === 'block') {
+          content.style.animation = 'fadeOut 0.3s ease';
+          setTimeout(() => {
+            content.style.display = 'none';
+            content.style.animation = '';
+          }, 300);
+        }
+      });
+
+      const footer = document.querySelector('.footer');
+      footer.classList.remove('visible');
+      footer.classList.add('hidden');
+
+      document.querySelectorAll('.nav-item').forEach(tab => {
+        tab.classList.remove('active');
+      });
+
+      setTimeout(() => {
+        const tabContent = document.getElementById(tabName + '-content');
+        tabContent.style.display = 'block';
+        tabContent.style.animation = 'fadeIn 0.5s ease';
+
+        footer.classList.remove('hidden');
+        footer.classList.add('visible');
+
+        const activeTab = document.querySelector(`.nav-item[onclick="showTab('${tabName}')"]`);
+        if (activeTab) activeTab.classList.add('active');
+
+        setTimeout(() => {
+          isSwitching = false;
+          document.querySelectorAll('.nav-item').forEach(tab => {
+            tab.classList.remove('disabled');
+          });
+        }, 500);
+      }, 300);
+    }
+  </script>
+</body>
+</html>

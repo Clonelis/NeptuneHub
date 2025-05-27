@@ -7,11 +7,15 @@
   <meta content="NeptuneHub" property="og:title">
   <meta content="Best universal hub" property="og:description">
   <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Clonelis/Neptunehub/refs/heads/main/Neptunee.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     body {
       background-color: #001f3f;
       color: white;
-      font-family: Arial, sans-serif;
+      font-family: 'Poppins', Arial, sans-serif;
       margin: 0;
     }
     .nav {
@@ -69,6 +73,8 @@
       padding: 8px 12px;
       border-radius: 5px;
       transition: all 0.3s ease;
+      font-weight: 500;
+      font-size: 15px;
     }
     .nav-item.active {
       background-color: #007bff;
@@ -83,10 +89,15 @@
     .title {
       font-size: 48px;
       color: #3399ff;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 10px;
     }
     .subtitle {
       font-size: 20px;
       color: #99ccff;
+      font-weight: 400;
+      opacity: 0.9;
     }
     .script-box {
       background-color: #003366;
@@ -98,10 +109,13 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      font-family: 'Roboto Mono', monospace;
     }
     #script {
       user-select: all;
       word-break: break-word;
+      font-size: 14px;
+      font-family: 'Roboto Mono', monospace;
     }
     button {
       background-color: transparent;
@@ -135,6 +149,7 @@
       font-size: 14px;
       display: inline-block;
       transition: all 0.5s ease;
+      font-weight: 300;
     }
     .footer:hover span {
       color: #3399ff;
@@ -161,6 +176,19 @@
       border: 1px solid #007bff;
       text-align: left;
     }
+    .info-content h3 {
+      font-weight: 600;
+      color: #3399ff;
+      margin-top: 15px;
+      margin-bottom: 10px;
+    }
+    .info-content p, .info-content li {
+      font-weight: 300;
+      line-height: 1.6;
+    }
+    .info-content ul {
+      padding-left: 20px;
+    }
     .tab-content {
       display: none;
       animation: fadeIn 0.5s ease;
@@ -173,6 +201,9 @@
       from { opacity: 1; transform: translateY(0); }
       to { opacity: 0; transform: translateY(-10px); }
     }
+    .nav-item.disabled {
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
@@ -183,20 +214,16 @@
     <button class="secret-btn" onclick="toggleModal()">🐱</button>
   </div>
 
-  <!-- Image Modal Window -->
   <div class="modal-overlay" id="imageModal" onclick="toggleModal()">
     <img src="https://raw.githubusercontent.com/Clonelis/Neptunehub/refs/heads/main/cat.png" class="modal-image" alt="Secret Cat">
   </div>
 
-  <!-- Home Tab Content -->
   <div id="home-content" class="tab-content">
     <div class="main">
       <span class="title">NeptuneHub</span>
       <span class="subtitle">Best universal hub</span>
     </div>
-
     <img src="https://raw.githubusercontent.com/Clonelis/Neptunehub/refs/heads/main/Neptt2.png" alt="NeptuneHub Banner" class="hub-image">
-
     <div class="script">
       <div class="script-box">
         <span id="script">loadstring(game:HttpGet("https://raw.githubusercontent.com/Clonelis/Scripts/refs/heads/main/NeptuneHub.lua"))()</span>
@@ -209,23 +236,19 @@
     </div>
   </div>
 
-  <!-- Info Tab Content -->
   <div id="info-content" class="tab-content" style="display: none;">
     <div class="main">
       <span class="title">About NeptuneHub</span>
     </div>
-    
     <div class="info-content">
       <h3>What is NeptuneHub?</h3>
       <p>NeptuneHub is a universal script hub designed to enhance your gaming experience with various features and utilities.</p>
-      
       <h3>Features:</h3>
       <ul>
         <li>Regular updates</li>
         <li>User-friendly interface</li>
         <li>High-performance scripts</li>
       </ul>
-      
       <h3>How to use:</h3>
       <p>Simply copy the script from the Home tab and execute it in your preferred executor.</p>
     </div>
@@ -236,7 +259,8 @@
   </div>
 
   <script>
-    // Show home tab by default
+    let isSwitching = false;
+
     document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('home-content').style.display = 'block';
     });
@@ -280,40 +304,49 @@
         console.error('Failed to copy script: ', err);
       });
     }
-    
+
     function showTab(tabName) {
-      // Hide current content with fade out effect
+      if (isSwitching) return;
+
+      isSwitching = true;
+      document.querySelectorAll('.nav-item').forEach(tab => {
+        tab.classList.add('disabled');
+      });
+
       document.querySelectorAll('.tab-content').forEach(content => {
         if (content.style.display === 'block') {
           content.style.animation = 'fadeOut 0.3s ease';
           setTimeout(() => {
             content.style.display = 'none';
+            content.style.animation = '';
           }, 300);
         }
       });
       
-      // Hide footer with animation
       const footer = document.querySelector('.footer');
       footer.classList.remove('visible');
       footer.classList.add('hidden');
 
-      // Remove active class from all tabs
       document.querySelectorAll('.nav-item').forEach(tab => {
         tab.classList.remove('active');
       });
-      
-      // Show new content with fade in effect
+
       setTimeout(() => {
         const tabContent = document.getElementById(tabName + '-content');
         tabContent.style.display = 'block';
         tabContent.style.animation = 'fadeIn 0.5s ease';
-        
-        // Show footer with animation
+
         footer.classList.remove('hidden');
         footer.classList.add('visible');
-        
-        // Mark active tab
-        event.currentTarget.classList.add('active');
+
+        document.querySelector(`.nav-item[onclick="showTab('${tabName}')"]`).classList.add('active');
+
+        setTimeout(() => {
+          isSwitching = false;
+          document.querySelectorAll('.nav-item').forEach(tab => {
+            tab.classList.remove('disabled');
+          });
+        }, 500);
       }, 300);
     }
   </script>

@@ -522,6 +522,7 @@
       background-color: #004080;
       border-radius: 5px;
       transition: all 0.3s ease;
+      position: relative;
     }
     .user-item:hover {
       background-color: #0056b3;
@@ -533,18 +534,55 @@
       border-radius: 50%;
       margin-right: 10px;
       border: 1px solid #007bff;
+      cursor: pointer;
+      position: relative;
+    }
+    .user-item img:hover::after {
+      content: 'Change Avatar';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 5px;
+      border-radius: 3px;
+      font-size: 12px;
+      z-index: 10;
     }
     .user-item span {
       font-size: 14px;
       font-weight: 500;
       color: #99ccff;
     }
+    .user-item .host-label {
+      font-size: 12px;
+      color: #ffd700;
+      margin-left: 5px;
+    }
+    .user-item .kick-btn {
+      position: absolute;
+      right: 8px;
+      background-color: #ff4d4d;
+      padding: 5px;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+    }
+    .user-item .kick-btn:hover {
+      background-color: #cc0000;
+    }
+    .user-item .kick-btn svg {
+      fill: white;
+      width: 16px;
+      height: 16px;
+    }
   </style>
 </head>
 <body>
   <audio id="messageSound" src="https://freesound.org/data/previews/256/256458_4770666-lq.mp3"></audio>
   <audio id="remoteAudio" autoplay></audio>
-  <video id="remoteVideo" autoplay style="display: none; max-width: 300px; border-radius: 5px; border: 1px solid #007bff;"></video>
+  <video id="remoteVideo" autoplay style="display: none; max-width: 300px; border perguntas: 5px; border: 1px solid #007bff;"></video>
   <div class="nav">
     <a href="#" class="nav-item active" onclick="showTab('home')">Home</a>
     <a href="#" class="nav-item" onclick="showTab('info')">Info</a>
@@ -629,6 +667,7 @@
         </div>
         <div class="peer-connect">
           <span class="peer-id-display" id="peer-id">Your Peer ID: Not connected</span>
+          <button onclick="copyPeerId()">Copy Peer ID</button>
           <input type="text" id="peer-connect-input" placeholder="Enter friend's Peer ID">
           <button onclick="connectToPeer()">Connect</button>
           <button id="call-btn" onclick="startCall()" disabled>Call</button>
@@ -675,6 +714,8 @@
     let myPeerId = null;
     let peerUsernames = {};
     let currentGroupName = '';
+    let groupHost = null;
+    let userAvatars = {};
     const messageSound = document.getElementById('messageSound');
     const remoteAudio = document.getElementById('remoteAudio');
     const remoteVideo = document.getElementById('remoteVideo');
@@ -764,6 +805,7 @@
         document.getElementById('call-btn').disabled = false;
         if (currentUser) {
           peerUsernames[myPeerId] = currentUser.username;
+          userAvatars[myPeerId] = catAvatar;
           renderUserList();
         }
       });
@@ -779,11 +821,18 @@
             handleGroupInit(data);
           } else if (data.type === 'hello') {
             peerUsernames[connection.peer] = data.username;
+            userAvatars[connection.peer] = data.avatar || catAvatar;
             renderUserList();
             receiveMessage(data);
+          } else if (data.type === 'kick') {
+            handleKick(data);
+          } else if (data.type === 'avatar') {
+            userAvatars[connection.peer] = data.avatar;
+            renderUserList();
           } else {
             if (!peerUsernames[connection.peer] && data.username) {
               peerUsernames[connection.peer] = data.username;
+              userAvatars[connection.peer] = data.avatar || catAvatar;
               renderUserList();
             }
             receiveMessage(data);
@@ -794,6 +843,7 @@
             const helloMessage = {
               type: 'hello',
               username: currentUser.username,
+              avatar: userAvatars[myPeerId] || catAvatar,
               timestamp: new Date().toLocaleTimeString()
             };
             connection.send(helloMessage);
@@ -802,6 +852,7 @@
         connection.on('close', function() {
           connections = connections.filter(c => c !== connection);
           delete peerUsernames[connection.peer];
+          delete userAvatars[connection.peer];
           updateGroupList();
           renderUserList();
         });
@@ -851,6 +902,102 @@
       });
     }
 
+    function copyPeerId() {
+      if (!myPeerId) {
+        showAlert('Peer ID not available');
+        return;
+      }
+      navigator.clipboard.writeText(myPeerId).then(() => {
+        showAlert('Peer ID copied to clipboard!');
+      }).catch(err => {
+        showAlert('Failed to copy Peer ID');
+        console.error('Copy failed:', err);
+      });
+    }
+
+    function changeAvatar(event, peerId) {
+      if (peerId !== myPeerId) return;
+      
+      const file = event.target.files[0];
+      if (!file) return;
+
+      if (!['image/png', 'image/jpeg', 'image/gif'].includes(file.type)) {
+        showAlert('Only PNG, JPEG, or GIF images are supported');
+        return;
+      }
+
+      const maxImageSize = 5 * 1024 * 1024;
+      if (file.size > maxImageSize) {
+        showAlert('Avatar image is too large (max 5MB)');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        userAvatars[myPeerId] = e.target.result;
+        const avatarMessage = {
+          type: 'avatar',
+          avatar: e.target.result
+        };
+        connections.forEach(conn => {
+          conn.send(avatarMessage);
+        });
+        renderUserList();
+        showAlert('Avatar updated successfully');
+      };
+      reader.onerror = function() {
+        showAlert('Failed to update avatar');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function kickUser(peerId) {
+      if (groupHost !== myPeerId) {
+        showAlert('Only the group host can kick users');
+        return;
+      }
+      if (peerId === myPeerId) {
+        showAlert('Cannot kick yourself');
+        return;
+      }
+      
+      const conn = connections.find(c => c.peer === peerId);
+      if (conn) {
+        const kickMessage = {
+          type: 'kick',
+          peerId: peerId,
+          username: peerUsernames[peerId]
+        };
+        connections.forEach(c => {
+          c.send(kickMessage);
+        });
+        conn.close();
+        showAlert(`Kicked user: ${peerUsernames[peerId] || peerId}`);
+      }
+    }
+
+    function handleKick(data) {
+      if (data.peerId === myPeerId) {
+        connections.forEach(conn => conn.close());
+        connections = [];
+        groupPeers = [];
+        currentGroupName = '';
+        groupHost = null;
+        updateGroupList();
+        updateGroupNameBar();
+        renderUserList();
+        showAlert(`You have been kicked from the group`);
+      } else {
+        connections = connections.filter(c => c.peer !== data.peerId);
+        groupPeers = groupPeers.filter(id => id !== data.peerId);
+        delete peerUsernames[data.peerId];
+        delete userAvatars[data.peerId];
+        updateGroupList();
+        renderUserList();
+        showAlert(`${data.username || data.peerId} has been kicked from the group`);
+      }
+    }
+
     function connectToPeer() {
       const peerId = document.getElementById('peer-connect-input').value.trim();
       if (!peerId) {
@@ -872,6 +1019,7 @@
           const helloMessage = {
             type: 'hello',
             username: currentUser.username,
+            avatar: userAvatars[myPeerId] || catAvatar,
             timestamp: new Date().toLocaleTimeString()
           };
           conn.send(helloMessage);
@@ -887,11 +1035,18 @@
           handleGroupInit(data);
         } else if (data.type === 'hello') {
           peerUsernames[conn.peer] = data.username;
+          userAvatars[conn.peer] = data.avatar || catAvatar;
           renderUserList();
           receiveMessage(data);
+        } else if (data.type === 'kick') {
+          handleKick(data);
+        } else if (data.type === 'avatar') {
+          userAvatars[conn.peer] = data.avatar;
+          renderUserList();
         } else {
           if (!peerUsernames[conn.peer] && data.username) {
             peerUsernames[conn.peer] = data.username;
+            userAvatars[conn.peer] = data.avatar || catAvatar;
             renderUserList();
           }
           receiveMessage(data);
@@ -904,6 +1059,7 @@
       conn.on('close', function() {
         connections = connections.filter(c => c !== conn);
         delete peerUsernames[conn.peer];
+        delete userAvatars[conn.peer];
         updateGroupList();
         renderUserList();
       });
@@ -926,6 +1082,7 @@
       }
       currentGroupName = groupName;
       groupPeers = [myPeerId, ...peerIds];
+      groupHost = myPeerId;
       peerIds.forEach(peerId => {
         if (!connections.some(c => c.peer === peerId)) {
           const conn = peer.connect(peerId);
@@ -935,6 +1092,7 @@
               const helloMessage = {
                 type: 'hello',
                 username: currentUser.username,
+                avatar: userAvatars[myPeerId] || catAvatar,
                 timestamp: new Date().toLocaleTimeString()
               };
               conn.send(helloMessage);
@@ -949,11 +1107,18 @@
               handleGroupInit(data);
             } else if (data.type === 'hello') {
               peerUsernames[conn.peer] = data.username;
+              userAvatars[conn.peer] = data.avatar || catAvatar;
               renderUserList();
               receiveMessage(data);
+            } else if (data.type === 'kick') {
+              handleKick(data);
+            } else if (data.type === 'avatar') {
+              userAvatars[conn.peer] = data.avatar;
+              renderUserList();
             } else {
               if (!peerUsernames[conn.peer] && data.username) {
                 peerUsernames[conn.peer] = data.username;
+                userAvatars[conn.peer] = data.avatar || catAvatar;
                 renderUserList();
               }
               receiveMessage(data);
@@ -965,6 +1130,7 @@
           conn.on('close', function() {
             connections = connections.filter(c => c !== conn);
             delete peerUsernames[conn.peer];
+            delete userAvatars[conn.peer];
             updateGroupList();
             renderUserList();
           });
@@ -986,7 +1152,8 @@
       const groupMessage = {
         type: 'group-init',
         groupPeers: groupPeers,
-        sender: myPeerId
+        sender: myPeerId,
+        host: groupHost
       };
       connections.forEach(conn => {
         conn.send(groupMessage);
@@ -994,6 +1161,7 @@
     }
 
     function handleGroupInit(data) {
+      groupHost = data.host || groupHost;
       const newPeers = data.groupPeers.filter(id => id !== myPeerId && !connections.some(c => c.peer === id));
       newPeers.forEach(peerId => {
         if (connections.length >= 5) {
@@ -1007,6 +1175,7 @@
             const helloMessage = {
               type: 'hello',
               username: currentUser.username,
+              avatar: userAvatars[myPeerId] || catAvatar,
               timestamp: new Date().toLocaleTimeString()
             };
             conn.send(helloMessage);
@@ -1020,11 +1189,18 @@
             handleGroupInit(data);
           } else if (data.type === 'hello') {
             peerUsernames[conn.peer] = data.username;
+            userAvatars[conn.peer] = data.avatar || catAvatar;
             renderUserList();
             receiveMessage(data);
+          } else if (data.type === 'kick') {
+            handleKick(data);
+          } else if (data.type === 'avatar') {
+            userAvatars[conn.peer] = data.avatar;
+            renderUserList();
           } else {
             if (!peerUsernames[conn.peer] && data.username) {
               peerUsernames[conn.peer] = data.username;
+              userAvatars[conn.peer] = data.avatar || catAvatar;
               renderUserList();
             }
             receiveMessage(data);
@@ -1036,6 +1212,7 @@
         conn.on('close', function() {
           connections = connections.filter(c => c !== conn);
           delete peerUsernames[conn.peer];
+          delete userAvatars[conn.peer];
           updateGroupList();
           renderUserList();
         });
@@ -1246,6 +1423,7 @@
         errorMessage.style.display = 'none';
         if (myPeerId) {
           peerUsernames[myPeerId] = currentUser.username;
+          userAvatars[myPeerId] = catAvatar;
           renderUserList();
         }
         updateNav();
@@ -1254,6 +1432,7 @@
           const helloMessage = {
             type: 'hello',
             username: currentUser.username,
+            avatar: userAvatars[myPeerId] || catAvatar,
             timestamp: new Date().toLocaleTimeString()
           };
           conn.send(helloMessage);
@@ -1268,9 +1447,12 @@
       currentUser = null;
       messages = [];
       peerUsernames = {};
+      userAvatars = {};
       currentGroupName = '';
+      groupHost = null;
       if (myPeerId) {
         peerUsernames[myPeerId] = null;
+        userAvatars[myPeerId] = null;
       }
       renderMessages();
       renderUserList();
@@ -1461,10 +1643,25 @@
       users.forEach(user => {
         const userDiv = document.createElement('div');
         userDiv.className = 'user-item';
-        userDiv.innerHTML = `
-          <img src="${catAvatar}" alt="Avatar">
-          <span>${user.username}</span>
+        const isHost = user.peerId === groupHost;
+        const avatarSrc = userAvatars[user.peerId] || catAvatar;
+        let userContent = `
+          <input type="file" id="avatar-input-${user.peerId}" accept="image/png,image/jpeg,image/gif" style="display: none;" onchange="changeAvatar(event, '${user.peerId}')">
+          <img src="${avatarSrc}" alt="Avatar" onclick="if ('${user.peerId}' === myPeerId) document.getElementById('avatar-input-${user.peerId}').click();">
+          <span>${user.username}${isHost ? '<span class="host-label">host</span>' : ''}</span>
         `;
+        if (isHost && user.peerId === myPeerId) {
+          // Host doesn't get a kick button for themselves
+        } else if (groupHost === myPeerId && user.peerId !== myPeerId) {
+          userContent += `
+            <button class="kick-btn" onclick="kickUser('${user.peerId}')">
+              <svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px">
+                <path d="M480-80q-83 0-156-31.5T196-197q-54-54-85-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm-40-360h200q17 0 28.5-11.5T680-480q0-17-11.5-28.5T640-520H440q-17 0-28.5 11.5T400-480q0 17 11.5 28.5T440-440Z"/>
+              </svg>
+            </button>
+          `;
+        }
+        userDiv.innerHTML = userContent;
         userListItems.appendChild(userDiv);
       });
 

@@ -1,7 +1,3 @@
-Вот перевод `README.md` на английский:
-
----
-
 # 🌌 NeptuneHub
 
 [![Website](https://img.shields.io/badge/Visit-NeptuneHub-blue?style=flat-square)](https://clonelis.github.io/NeptuneHub/)

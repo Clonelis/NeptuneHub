@@ -588,6 +588,23 @@
       width: 16px;
       height: 16px;
     }
+    .user-item .screen-share-btn {
+      background-color: #007bff;
+      color: white;
+      padding: 5px;
+      border-radius: 5px;
+      margin-left: 5px;
+      display: flex;
+      align-items: center;
+    }
+    .user-item .screen-share-btn:hover {
+      background-color: #0056b3;
+    }
+    .user-item .screen-share-btn svg {
+      fill: white;
+      width: 16px;
+      height: 16px;
+    }
   </style>
 </head>
 <body>
@@ -685,7 +702,6 @@
           <button onclick="connectToPeer()">Connect</button>
           <button id="call-btn" onclick="startCall()" disabled>Call</button>
           <button id="mute-btn" onclick="toggleMute()" style="display: none;">Mute</button>
-          <button id="screen-share-btn" onclick="startScreenShare()" style="display: none;">Share Screen</button>
           <button id="hangup-btn" onclick="endCall()" style="display: none;">Hang Up</button>
         </div>
         <div class="call-status" id="call-status"></div>
@@ -857,7 +873,8 @@
               type: 'hello',
               username: currentUser.username,
               avatar: userAvatars[myPeerId] || catAvatar,
-              timestamp: new Date().toLocaleTimeString()
+              timestamp: new Date().toLocaleTimeString(),
+              isHost: myPeerId === groupHost
             };
             connection.send(helloMessage);
           }
@@ -893,7 +910,6 @@
               document.getElementById('call-status').textContent = 'Call Connected';
               document.getElementById('call-btn').style.display = 'none';
               document.getElementById('mute-btn').style.display = 'inline-block';
-              document.getElementById('screen-share-btn').style.display = 'inline-block';
               document.getElementById('hangup-btn').style.display = 'inline-block';
               addCallNotification('Call Started', incomingCall.peer);
             });
@@ -1011,6 +1027,84 @@
       }
     }
 
+    function startScreenShare(peerId) {
+      if (!navigator.mediaDevices.getDisplayMedia) {
+        showAlert('Screen sharing is not supported in this browser');
+        return;
+      }
+      navigator.mediaDevices.getDisplayMedia({ video: true })
+        .then(function(screenStream) {
+          localStream = screenStream;
+          const conn = connections.find(c => c.peer === peerId);
+          if (conn) {
+            const call = calls.find(c => c.peer === peerId) || peer.call(peerId, screenStream);
+            if (!calls.includes(call)) {
+              calls.push(call);
+              call.on('stream', function(remoteStream) {
+                if (remoteStream.getVideoTracks().length > 0) {
+                  remoteVideo.srcObject = remoteStream;
+                  remoteVideo.style.display = 'block';
+                  remoteAudio.style.display = 'none';
+                } else {
+                  remoteAudio.srcObject = remoteStream;
+                  remoteVideo.style.display = 'none';
+                }
+                document.getElementById('call-status').textContent = 'Screen Sharing';
+                document.getElementById('call-btn').style.display = 'none';
+                document.getElementById('mute-btn').style.display = 'inline-block';
+                document.getElementById('hangup-btn').style.display = 'inline-block';
+                addCallNotification('Screen Sharing Started', peerId);
+              });
+              call.on('close', function() {
+                endCall(call);
+              });
+              call.on('error', function(err) {
+                showAlert('Screen share error: ' + err);
+                endCall(call);
+              });
+            } else {
+              const videoTrack = screenStream.getVideoTracks()[0];
+              const sender = call.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+              if (sender) {
+                sender.replaceTrack(videoTrack);
+              } else {
+                call.peerConnection.addTrack(videoTrack, screenStream);
+              }
+              document.getElementById('call-status').textContent = 'Screen Sharing';
+              addCallNotification('Screen Sharing Started', peerId);
+            }
+          }
+          remoteVideo.srcObject = screenStream;
+          remoteVideo.style.display = 'block';
+          remoteAudio.style.display = 'none';
+          showAlert('Screen sharing started with ' + peerId);
+          screenStream.getVideoTracks()[0].onended = function() {
+            showAlert('Screen sharing stopped');
+            navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+              .then(function(stream) {
+                localStream = stream;
+                calls.forEach(call => {
+                  const audioTrack = stream.getAudioTracks()[0];
+                  const sender = call.peerConnection.getSenders().find(s => s.track && s.track.kind === 'audio');
+                  if (sender) {
+                    sender.replaceTrack(audioTrack);
+                  }
+                });
+                remoteVideo.style.display = 'none';
+                remoteAudio.srcObject = stream;
+                document.getElementById('call-status').textContent = 'Call Connected';
+                addCallNotification('Screen Sharing Stopped', peerId);
+              })
+              .catch(function(err) {
+                showAlert('Failed to revert to audio stream: ' + err);
+              });
+          };
+        })
+        .catch(function(err) {
+          showAlert('Screen sharing denied: ' + err);
+        });
+    }
+
     function connectToPeer() {
       const peerId = document.getElementById('peer-connect-input').value.trim();
       if (!peerId) {
@@ -1033,7 +1127,8 @@
             type: 'hello',
             username: currentUser.username,
             avatar: userAvatars[myPeerId] || catAvatar,
-            timestamp: new Date().toLocaleTimeString()
+            timestamp: new Date().toLocaleTimeString(),
+            isHost: myPeerId === groupHost
           };
           conn.send(helloMessage);
         }
@@ -1106,7 +1201,8 @@
                 type: 'hello',
                 username: currentUser.username,
                 avatar: userAvatars[myPeerId] || catAvatar,
-                timestamp: new Date().toLocaleTimeString()
+                timestamp: new Date().toLocaleTimeString(),
+                isHost: myPeerId === groupHost
               };
               conn.send(helloMessage);
             }
@@ -1189,7 +1285,8 @@
               type: 'hello',
               username: currentUser.username,
               avatar: userAvatars[myPeerId] || catAvatar,
-              timestamp: new Date().toLocaleTimeString()
+              timestamp: new Date().toLocaleTimeString(),
+              isHost: myPeerId === groupHost
             };
             conn.send(helloMessage);
           }
@@ -1263,7 +1360,6 @@
               document.getElementById('call-status').textContent = 'Call Connected';
               document.getElementById('call-btn').style.display = 'none';
               document.getElementById('mute-btn').style.display = 'inline-block';
-              document.getElementById('screen-share-btn').style.display = 'inline-block';
               document.getElementById('hangup-btn').style.display = 'inline-block';
               addCallNotification('Call Started', conn.peer);
             });
@@ -1279,52 +1375,6 @@
         })
         .catch(function(err) {
           showAlert('Microphone access denied: ' + err);
-        });
-    }
-
-    function startScreenShare() {
-      if (!navigator.mediaDevices.getDisplayMedia) {
-        showAlert('Screen sharing is not supported in this browser');
-        return;
-      }
-      navigator.mediaDevices.getDisplayMedia({ video: true })
-        .then(function(screenStream) {
-          localStream = screenStream;
-          calls.forEach(call => {
-            const videoTrack = screenStream.getVideoTracks()[0];
-            const sender = call.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
-            if (sender) {
-              sender.replaceTrack(videoTrack);
-            } else {
-              call.peerConnection.addTrack(videoTrack, screenStream);
-            }
-          });
-          remoteVideo.srcObject = screenStream;
-          remoteVideo.style.display = 'block';
-          remoteAudio.style.display = 'none';
-          showAlert('Screen sharing started');
-          screenStream.getVideoTracks()[0].onended = function() {
-            showAlert('Screen sharing stopped');
-            navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-              .then(function(stream) {
-                localStream = stream;
-                calls.forEach(call => {
-                  const audioTrack = stream.getAudioTracks()[0];
-                  const sender = call.peerConnection.getSenders().find(s => s.track && s.track.kind === 'audio');
-                  if (sender) {
-                    sender.replaceTrack(audioTrack);
-                  }
-                });
-                remoteVideo.style.display = 'none';
-                remoteAudio.srcObject = stream;
-              })
-              .catch(function(err) {
-                showAlert('Failed to revert to audio stream: ' + err);
-              });
-          };
-        })
-        .catch(function(err) {
-          showAlert('Screen sharing denied: ' + err);
         });
     }
 
@@ -1357,7 +1407,6 @@
       document.getElementById('call-status').textContent = 'Call Ended';
       document.getElementById('call-btn').style.display = 'inline-block';
       document.getElementById('mute-btn').style.display = 'none';
-      document.getElementById('screen-share-btn').style.display = 'none';
       document.getElementById('hangup-btn').style.display = 'none';
       addCallNotification('Call Ended', connections.map(c => c.peer).join(', '));
     }
@@ -1446,7 +1495,8 @@
             type: 'hello',
             username: currentUser.username,
             avatar: userAvatars[myPeerId] || catAvatar,
-            timestamp: new Date().toLocaleTimeString()
+            timestamp: new Date().toLocaleTimeString(),
+            isHost: myPeerId === groupHost
           };
           conn.send(helloMessage);
         });
@@ -1589,7 +1639,7 @@
 
       const reader = new FileReader();
       reader.onload = function(e) {
-        const message = {
+        const esposo = {
           id: Date.now(),
           username: currentUser.username,
           timestamp: new Date().toLocaleTimeString(),
@@ -1646,27 +1696,33 @@
 
       const users = [];
       if (currentUser && myPeerId && peerUsernames[myPeerId]) {
-        users.push({ peerId: myPeerId, username: peerUsernames[myPeerId] });
+        users.push({ peerId: myPeerId, username: peerUsernames[myPeerId], isHost: myPeerId === groupHost });
       }
       connections.forEach(conn => {
         if (peerUsernames[conn.peer]) {
-          users.push({ peerId: conn.peer, username: peerUsernames[conn.peer] });
+          users.push({ peerId: conn.peer, username: peerUsernames[conn.peer], isHost: conn.metadata?.isHost || false });
         }
       });
 
       users.forEach(user => {
         const userDiv = document.createElement('div');
         userDiv.className = 'user-item';
-        const isHost = user.peerId === groupHost;
         const avatarSrc = userAvatars[user.peerId] || catAvatar;
         let userContent = `
           <input type="file" id="avatar-input-${user.peerId}" accept="image/png,image/jpeg,image/gif" style="display: none;" onchange="changeAvatar(event, '${user.peerId}')">
           <img src="${avatarSrc}" alt="Avatar" onclick="if ('${user.peerId}' === myPeerId) document.getElementById('avatar-input-${user.peerId}').click();">
-          <span>${user.username}${isHost ? '<span class="host-label">host</span>' : ''}</span>
+          <span>${user.username}${user.isHost ? '<span class="host-label">host</span>' : ''}</span>
         `;
-        if (isHost && user.peerId === myPeerId) {
-          // Host doesn't get a kick button for themselves
-        } else if (groupHost === myPeerId && user.peerId !== myPeerId) {
+        if (user.peerId === myPeerId) {
+          userContent += `
+            <button class="screen-share-btn" onclick="startScreenShare('${user.peerId}')">
+              <svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px">
+                <path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h640q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H160v400Zm320-40q83 0 141.5-58.5T680-480q0-83-58.5-141.5T480-680q-83 0-141.5 58.5T280-480q0 83 58.5 141.5T480-280Zm0-80q-50 0-85-35t-35-85q0-50 35-85t85-35q50 0 85 35t35 85q0 50-35 85t-85 35Z"/>
+              </svg>
+            </button>
+          `;
+        }
+        if (groupHost === myPeerId && user.peerId !== myPeerId) {
           userContent += `
             <button class="kick-btn" onclick="kickUser('${user.peerId}')">
               <svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px">

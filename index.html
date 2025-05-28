@@ -594,15 +594,15 @@
   <audio id="messageSound" src="https://github.com/Clonelis/NeptuneHub/raw/refs/heads/main/music.mp3"></audio>
   <audio id="remoteAudio" autoplay></audio>
   <video id="remoteVideo" autoplay style="display: none; max-width: 300px; border-radius: 5px; border: 1px solid #007bff;"></video>
-  <div class="nav">
-    <a href="#" class="nav-item active" onclick="showTab('home')">Home</a>
-    <a href="#" class="nav-item" onclick="showTab('info')">Info</a>
-    <a href="https://discord.gg/VUTn7FNvUN" class="nav-item" target="_blank">Discord</a>
-    <a href="#" class="nav-item" onclick="showTab('login')" id="login-tab">Login</a>
-    <a href="#" class="nav-item" onclick="showTab('chat')" id="chat-tab" style="display: none;">Chat</a>
-    <a href="#" class="nav-item" onclick="logout()" id="logout-tab" style="display: none;">Logout</a>
-    <button class="secret-btn" onclick="toggleModal()">🐱</button>
-  </div>
+ <div class="nav">
+   <a href="#" class="nav-item active" onclick="showTab('home')">Home</a>
+   <a href="#" class="nav-item" onclick="showTab('info')">Info</a>
+   <a href="#" class="nav-item" onclick="showTab('login')" id="login-tab">Login</a>
+   <a href="https://discord.gg/VUTn7FNvUN" class="nav-item" target="_blank">Discord</a>
+   <a href="#" class="nav-item" onclick="showTab('chat')" id="chat-tab" style="display: none;">Chat</a>
+   <a href="#" class="nav-item" onclick="logout()" id="logout-tab" style="display: none;">Logout</a>
+   <button class="secret-btn" onclick="toggleModal()">🐱</button>
+ </div>
 
   <div class="modal-overlay" id="imageModal" onclick="toggleModal()">
     <img src="" class="modal-image" id="modalImage" alt="Zoomed Image">

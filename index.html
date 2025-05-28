@@ -1566,8 +1566,8 @@
       const file = event.target.files[0];
       if (!file || !currentUser) return;
 
-      const maxImageSize = 10 * 1024 * 1024;
-      const maxVideoSize = 20 * 1024 * 1024;
+      const maxImageSize = 20 * 1024 * 1024;
+      const maxVideoSize = 50 * 1024 * 1024;
       if (file.type.startsWith('image/') && file.size > maxImageSize) {
         showAlert('Image file is too large (max 10MB)');
         event.target.value = '';

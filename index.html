@@ -593,7 +593,7 @@
 <body>
   <audio id="messageSound" src="https://github.com/Clonelis/NeptuneHub/raw/refs/heads/main/music.mp3"></audio>
   <audio id="remoteAudio" autoplay></audio>
-  <video id="remoteVideo" autoplay style="display: none; max-width: 300px; border-radius: 5px; border: 1px solid #007bff;"></video>
+  <video id="remoteVideo" autoplay playsinline style="display: none; max-width: 300px; border-radius: 5px; border: 1px solid #007bff;"></video>
  <div class="nav">
    <a href="#" class="nav-item active" onclick="showTab('home')">Home</a>
    <a href="#" class="nav-item" onclick="showTab('info')">Info</a>
@@ -815,11 +815,15 @@
         document.getElementById('call-btn').disabled = false;
         if (currentUser) {
           peerUsernames[myPeerId] = currentUser.username;
-          userAvatars[myPeerId] = catAvatar;
+          userAvatars[myPeerId] = userAvatars[myPeerId] || catAvatar; // Keep existing avatar if any
           renderUserList();
         }
       });
       peer.on('connection', function(connection) {
+        if (connections.some(c => c.peer === connection.peer)) { // Prevent duplicate connections
+            connection.close();
+            return;
+        }
         if (connections.length >= 5) {
           connection.close();
           showAlert('Maximum connections reached (5)');
@@ -860,9 +864,11 @@
           }
         });
         connection.on('close', function() {
-          connections = connections.filter(c => c !== connection);
+          connections = connections.filter(c => c.peer !== connection.peer); // Use peer comparison
           delete peerUsernames[connection.peer];
           delete userAvatars[connection.peer];
+          groupPeers = groupPeers.filter(p => p !== connection.peer);
+          if (groupHost === connection.peer) groupHost = null; // Handle host disconnect if needed
           updateGroupList();
           renderUserList();
         });
@@ -873,18 +879,22 @@
         broadcastGroupInfo();
       });
       peer.on('call', function(incomingCall) {
-        navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+        navigator.mediaDevices.getUserMedia({ audio: true, video: true }) // Request video too, for flexibility
           .then(function(stream) {
+            if (localStream) { // Stop any existing local stream tracks
+                localStream.getTracks().forEach(track => track.stop());
+            }
             localStream = stream;
-            incomingCall.answer(stream);
+            incomingCall.answer(localStream); // Answer with current localStream
             calls.push(incomingCall);
             incomingCall.on('stream', function(remoteStream) {
               if (remoteStream.getVideoTracks().length > 0) {
                 remoteVideo.srcObject = remoteStream;
                 remoteVideo.style.display = 'block';
-                remoteAudio.style.display = 'none';
+                remoteAudio.muted = true; // Mute remote audio element if video is playing to avoid echo from same stream
               } else {
                 remoteAudio.srcObject = remoteStream;
+                remoteAudio.muted = false;
                 remoteVideo.style.display = 'none';
               }
               document.getElementById('call-status').textContent = 'Call Connected';
@@ -898,16 +908,16 @@
               endCall(incomingCall);
             });
             incomingCall.on('error', function(err) {
-              showAlert('Call error: ' + err);
+              showAlert('Call error: ' + err.message);
               endCall(incomingCall);
             });
           })
           .catch(function(err) {
-            showAlert('Microphone access denied: ' + err);
+            showAlert('Microphone/Camera access denied: ' + err.message);
           });
       });
       peer.on('error', function(err) {
-        showAlert('Peer connection error: ' + err);
+        showAlert('Peer connection error: ' + err.message);
         document.getElementById('call-btn').disabled = true;
       });
     }
@@ -979,32 +989,34 @@
           username: peerUsernames[peerId]
         };
         connections.forEach(c => {
-          c.send(kickMessage);
+          if(c.peer !== peerId) c.send(kickMessage); // Inform others
         });
-        conn.close();
+        conn.send(kickMessage); // Inform the kicked user
+        setTimeout(() => conn.close(), 100); // Give time for message to send
         showAlert(`Kicked user: ${peerUsernames[peerId] || peerId}`);
       }
+        // Local cleanup will happen on 'close' event of connection
     }
 
     function handleKick(data) {
       if (data.peerId === myPeerId) {
-        connections.forEach(conn => conn.close());
+        showAlert(`You have been kicked from the group by ${peerUsernames[groupHost] || 'the host'}`);
+        connections.forEach(conn => conn.close()); // Close all connections
         connections = [];
         groupPeers = [];
         currentGroupName = '';
         groupHost = null;
         updateGroupList();
         updateGroupNameBar();
-        renderUserList();
-        showAlert(`You have been kicked from the group`);
+        renderUserList(); // Will show empty or just self if peer re-initializes
+        if (calls.length > 0) endCall();
+
       } else {
-        connections = connections.filter(c => c.peer !== data.peerId);
-        groupPeers = groupPeers.filter(id => id !== data.peerId);
-        delete peerUsernames[data.peerId];
-        delete userAvatars[data.peerId];
-        updateGroupList();
-        renderUserList();
+        // Other members get informed
         showAlert(`${data.username || data.peerId} has been kicked from the group`);
+        const kickedConn = connections.find(c => c.peer === data.peerId);
+        if (kickedConn) kickedConn.close(); // Ensure connection is closed if not already
+         // Local cleanup for other users will happen on 'close' event of the kicked user's connection
       }
     }
 
@@ -1012,6 +1024,10 @@
       const peerId = document.getElementById('peer-connect-input').value.trim();
       if (!peerId) {
         showAlert('Please enter a valid Peer ID');
+        return;
+      }
+      if (connections.some(c => c.peer === peerId)) {
+        showAlert('Already connected to this peer or connection attempt in progress.');
         return;
       }
       if (connections.length >= 5) {
@@ -1023,8 +1039,10 @@
         return;
       }
       const conn = peer.connect(peerId);
+      // Event handlers for this specific conn are set in initializePeer's peer.on('connection')
+      // but we need an error handler for the connect attempt itself.
       conn.on('open', function() {
-        connections.push(conn);
+        // connections.push(conn); // This is handled by peer.on('connection') if successful
         if (currentUser) {
           const helloMessage = {
             type: 'hello',
@@ -1034,207 +1052,130 @@
           };
           conn.send(helloMessage);
         }
-        showAlert(`Connected to peer: ${peerId}`);
-        document.getElementById('call-btn').disabled = false;
-        updateGroupList();
-        renderUserList();
-        broadcastGroupInfo();
+        showAlert(`Connection attempt to peer: ${peerId}`);
+        // Remaining setup is handled by the global peer.on('connection') handler
       });
-      conn.on('data', function(data) {
-        if (data.type === 'group-init') {
-          handleGroupInit(data);
-        } else if (data.type === 'hello') {
-          peerUsernames[conn.peer] = data.username;
-          userAvatars[conn.peer] = data.avatar || catAvatar;
-          renderUserList();
-          receiveMessage(data);
-        } else if (data.type === 'kick') {
-          handleKick(data);
-        } else if (data.type === 'avatar') {
-          userAvatars[conn.peer] = data.avatar;
-          renderUserList();
-        } else {
-          if (!peerUsernames[conn.peer] && data.username) {
-            peerUsernames[conn.peer] = data.username;
-            userAvatars[conn.peer] = data.avatar || catAvatar;
-            renderUserList();
-          }
-          receiveMessage(data);
-        }
-      });
-      conn.on('error', function(err) {
-        showAlert('Connection error: ' + err);
-        document.getElementById('call-btn').disabled = true;
-      });
-      conn.on('close', function() {
-        connections = connections.filter(c => c !== conn);
-        delete peerUsernames[conn.peer];
-        delete userAvatars[conn.peer];
-        updateGroupList();
-        renderUserList();
+       conn.on('error', function(err) {
+        showAlert('Connection error: ' + err.message);
+        document.getElementById('call-btn').disabled = connections.length === 0;
       });
     }
 
     function createGroup() {
-      const groupName = document.getElementById('group-name').value.trim();
-      const peerIds = document.getElementById('group-peer-ids').value.split(',').map(id => id.trim()).filter(id => id);
+      const groupNameInput = document.getElementById('group-name');
+      const peerIdsInput = document.getElementById('group-peer-ids');
+      const groupName = groupNameInput.value.trim();
+      const peerIdStrings = peerIdsInput.value.split(',').map(id => id.trim()).filter(id => id && id !== myPeerId);
+
       if (!groupName) {
         showAlert('Please enter a group name');
         return;
       }
-      if (peerIds.length > 4) {
-        showAlert('Maximum 5 members allowed in a group');
+      if (peerIdStrings.length + 1 > 5) { // +1 for self
+        showAlert('Maximum 5 members allowed in a group (including yourself)');
         return;
       }
-      if (peerIds.includes(myPeerId)) {
-        showAlert('Cannot include your own Peer ID in the group');
-        return;
-      }
+
       currentGroupName = groupName;
-      groupPeers = [myPeerId, ...peerIds];
       groupHost = myPeerId;
-      peerIds.forEach(peerId => {
-        if (!connections.some(c => c.peer === peerId)) {
-          const conn = peer.connect(peerId);
-          conn.on('open', function() {
-            connections.push(conn);
-            if (currentUser) {
-              const helloMessage = {
-                type: 'hello',
-                username: currentUser.username,
-                avatar: userAvatars[myPeerId] || catAvatar,
-                timestamp: new Date().toLocaleTimeString()
-              };
-              conn.send(helloMessage);
-            }
-            showAlert(`Connected to peer: ${peerId}`);
-            updateGroupList();
-            renderUserList();
-            broadcastGroupInfo();
-          });
-          conn.on('data', function(data) {
-            if (data.type === 'group-init') {
-              handleGroupInit(data);
-            } else if (data.type === 'hello') {
-              peerUsernames[conn.peer] = data.username;
-              userAvatars[conn.peer] = data.avatar || catAvatar;
-              renderUserList();
-              receiveMessage(data);
-            } else if (data.type === 'kick') {
-              handleKick(data);
-            } else if (data.type === 'avatar') {
-              userAvatars[conn.peer] = data.avatar;
-              renderUserList();
-            } else {
-              if (!peerUsernames[conn.peer] && data.username) {
-                peerUsernames[conn.peer] = data.username;
-                userAvatars[conn.peer] = data.avatar || catAvatar;
-                renderUserList();
-              }
-              receiveMessage(data);
-            }
-          });
-          conn.on('error', function(err) {
-            showAlert(`Connection error with ${peerId}: ` + err);
-          });
-          conn.on('close', function() {
-            connections = connections.filter(c => c !== conn);
-            delete peerUsernames[conn.peer];
-            delete userAvatars[conn.peer];
-            updateGroupList();
-            renderUserList();
-          });
+      groupPeers = [myPeerId, ...peerIdStrings];
+
+      // Connect to new peers if not already connected
+      peerIdStrings.forEach(id => {
+        if (!connections.some(c => c.peer === id)) {
+          connectToPeerById(id); // Helper to connect without UI interaction
         }
       });
-      showAlert(`Group "${groupName}" created with ${peerIds.length} members`);
+      
+      broadcastGroupInfo(); // Inform existing and newly connected peers about the group
+      showAlert(`Group "${groupName}" created/updated.`);
       updateGroupList();
       renderUserList();
       updateGroupNameBar();
+      groupNameInput.value = '';
+      peerIdsInput.value = '';
     }
+    
+    function connectToPeerById(peerId) { // For internal group connections
+        if (peerId === myPeerId || connections.some(c => c.peer === peerId)) return;
+        const conn = peer.connect(peerId);
+        // Standard handlers will be attached by peer.on('connection')
+         conn.on('open', () => {
+            if (currentUser) {
+              const helloMessage = {type: 'hello', username: currentUser.username, avatar: userAvatars[myPeerId] || catAvatar, timestamp: new Date().toLocaleTimeString()};
+              conn.send(helloMessage);
+            }
+        });
+        conn.on('error', (err) => showAlert(`Failed to connect to group member ${peerId}: ${err.message}`));
+    }
+
 
     function updateGroupNameBar() {
       const groupNameBar = document.getElementById('group-name-bar');
       groupNameBar.textContent = currentGroupName || 'No Group';
+      if (groupHost && peerUsernames[groupHost]) {
+        groupNameBar.textContent += ` (Host: ${peerUsernames[groupHost]})`;
+      } else if (groupHost === myPeerId && currentUser) {
+         groupNameBar.textContent += ` (Host: ${currentUser.username})`;
+      }
     }
 
     function broadcastGroupInfo() {
-      if (groupPeers.length === 0) return;
+      if (groupPeers.length === 0 || !currentGroupName) return;
       const groupMessage = {
         type: 'group-init',
+        groupName: currentGroupName,
         groupPeers: groupPeers,
+        host: groupHost,
         sender: myPeerId,
-        host: groupHost
+        avatars: userAvatars, // Send all known avatars
+        usernames: peerUsernames // Send all known usernames
       };
       connections.forEach(conn => {
-        conn.send(groupMessage);
+        if (groupPeers.includes(conn.peer)) { // Only send to group members
+            conn.send(groupMessage);
+        }
       });
     }
 
     function handleGroupInit(data) {
-      groupHost = data.host || groupHost;
-      const newPeers = data.groupPeers.filter(id => id !== myPeerId && !connections.some(c => c.peer === id));
-      newPeers.forEach(peerId => {
-        if (connections.length >= 5) {
-          showAlert('Maximum connections reached (5)');
-          return;
-        }
-        const conn = peer.connect(peerId);
-        conn.on('open', function() {
-          connections.push(conn);
-          if (currentUser) {
-            const helloMessage = {
-              type: 'hello',
-              username: currentUser.username,
-              avatar: userAvatars[myPeerId] || catAvatar,
-              timestamp: new Date().toLocaleTimeString()
-            };
-            conn.send(helloMessage);
-          }
-          showAlert(`Connected to peer: ${peerId} (via group)`);
-          updateGroupList();
-          renderUserList();
-        });
-        conn.on('data', function(data) {
-          if (data.type === 'group-init') {
-            handleGroupInit(data);
-          } else if (data.type === 'hello') {
-            peerUsernames[conn.peer] = data.username;
-            userAvatars[conn.peer] = data.avatar || catAvatar;
-            renderUserList();
-            receiveMessage(data);
-          } else if (data.type === 'kick') {
-            handleKick(data);
-          } else if (data.type === 'avatar') {
-            userAvatars[conn.peer] = data.avatar;
-            renderUserList();
-          } else {
-            if (!peerUsernames[conn.peer] && data.username) {
-              peerUsernames[conn.peer] = data.username;
-              userAvatars[conn.peer] = data.avatar || catAvatar;
-              renderUserList();
+        currentGroupName = data.groupName;
+        groupHost = data.host;
+        const newPeerIds = data.groupPeers.filter(id => id !== myPeerId && !connections.some(c => c.peer === id));
+
+        Object.assign(userAvatars, data.avatars); // Merge avatars
+        Object.assign(peerUsernames, data.usernames); // Merge usernames
+        if(data.usernames[data.sender]) peerUsernames[data.sender] = data.usernames[data.sender];
+        if(data.avatars[data.sender]) userAvatars[data.sender] = data.avatars[data.sender];
+
+
+        newPeerIds.forEach(peerId => {
+            if (connections.length < 5) {
+                connectToPeerById(peerId);
             }
-            receiveMessage(data);
-          }
         });
-        conn.on('error', function(err) {
-          showAlert(`Connection error with ${peerId}: ` + err);
-        });
-        conn.on('close', function() {
-          connections = connections.filter(c => c !== conn);
-          delete peerUsernames[conn.peer];
-          delete userAvatars[conn.peer];
-          updateGroupList();
-          renderUserList();
-        });
-      });
-      groupPeers = [...new Set([...groupPeers, ...data.groupPeers])];
-      updateGroupList();
-      renderUserList();
+        groupPeers = [...new Set([...groupPeers, ...data.groupPeers])]; // Merge peer lists
+        
+        updateGroupList();
+        renderUserList();
+        updateGroupNameBar();
+        showAlert(`Joined/Updated group: "${currentGroupName}"`);
     }
+
 
     function updateGroupList() {
       const groupList = document.getElementById('group-list');
-      groupList.innerHTML = connections.length > 0 ? `Connected Peers: ${connections.map(c => c.peer).join(', ')}` : 'No peers connected';
+      const connectedGroupPeers = connections.filter(c => groupPeers.includes(c.peer));
+      if (currentGroupName && groupPeers.length > 0) {
+          let text = `Group: ${currentGroupName}. Members: `;
+          text += groupPeers.map(p => {
+              const username = peerUsernames[p] || (p === myPeerId && currentUser ? currentUser.username : p.substring(0,6)+'...');
+              return username + (p === groupHost ? "(H)" : "");
+          }).join(', ');
+          groupList.innerHTML = text;
+      } else {
+          groupList.innerHTML = connections.length > 0 ? `Connected Peers (No Group): ${connections.map(c => peerUsernames[c.peer] || c.peer.substring(0,6)+'...').join(', ')}` : 'No peers connected';
+      }
     }
 
     function startCall() {
@@ -1242,88 +1183,163 @@
         showAlert('Please connect to at least one peer first');
         return;
       }
-      navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      navigator.mediaDevices.getUserMedia({ audio: true, video: true }) // Request video too
         .then(function(stream) {
+          if (localStream) { localStream.getTracks().forEach(track => track.stop()); }
           localStream = stream;
           connections.forEach(conn => {
-            const call = peer.call(conn.peer, stream);
-            calls.push(call);
-            call.on('stream', function(remoteStream) {
-              if (remoteStream.getVideoTracks().length > 0) {
-                remoteVideo.srcObject = remoteStream;
-                remoteVideo.style.display = 'block';
-                remoteAudio.style.display = 'none';
-              } else {
-                remoteAudio.srcObject = remoteStream;
-                remoteVideo.style.display = 'none';
-              }
-              document.getElementById('call-status').textContent = 'Call Connected';
-              document.getElementById('call-btn').style.display = 'none';
-              document.getElementById('mute-btn').style.display = 'inline-block';
-              document.getElementById('screen-share-btn').style.display = 'inline-block';
-              document.getElementById('hangup-btn').style.display = 'inline-block';
-              addCallNotification('Call Started', conn.peer);
-            });
-            call.on('close', function() {
-              endCall(call);
-            });
-            call.on('error', function(err) {
-              showAlert('Call error: ' + err);
-              endCall(call);
-            });
+            if (!calls.some(c => c.peer === conn.peer && c.open)) { // Avoid duplicate calls
+                const call = peer.call(conn.peer, localStream);
+                calls.push(call);
+                setupCallEventHandlers(call);
+            }
           });
           document.getElementById('call-status').textContent = 'Calling...';
+          // UI updates are handled in setupCallEventHandlers or peer.on('call')
         })
         .catch(function(err) {
-          showAlert('Microphone access denied: ' + err);
+          showAlert('Microphone/Camera access denied: ' + err.message);
         });
     }
+    
+    function setupCallEventHandlers(callInstance) {
+        callInstance.on('stream', function(remoteStream) {
+            if (remoteStream.getVideoTracks().length > 0) {
+                remoteVideo.srcObject = remoteStream;
+                remoteVideo.style.display = 'block';
+                remoteAudio.muted = true; // Mute element if video has audio
+            } else {
+                remoteAudio.srcObject = remoteStream;
+                remoteAudio.muted = false;
+                remoteVideo.style.display = 'none';
+            }
+            document.getElementById('call-status').textContent = 'Call Connected';
+            document.getElementById('call-btn').style.display = 'none';
+            document.getElementById('mute-btn').style.display = 'inline-block';
+            document.getElementById('screen-share-btn').style.display = 'inline-block';
+            document.getElementById('hangup-btn').style.display = 'inline-block';
+            addCallNotification('Call Started', callInstance.peer);
+        });
+        callInstance.on('close', function() {
+            endCall(callInstance);
+        });
+        callInstance.on('error', function(err) {
+            showAlert(`Call error with ${callInstance.peer}: ` + err.message);
+            endCall(callInstance);
+        });
+    }
+
 
     function startScreenShare() {
       if (!navigator.mediaDevices.getDisplayMedia) {
         showAlert('Screen sharing is not supported in this browser');
         return;
       }
-      navigator.mediaDevices.getDisplayMedia({ video: true })
+      if (calls.length === 0) {
+        showAlert('You need to be in a call to share your screen.');
+        return;
+      }
+
+      navigator.mediaDevices.getDisplayMedia({ video: true, audio: true }) // Request audio too, user can choose
         .then(function(screenStream) {
-          localStream = screenStream;
+          let audioTrackFromMic = null;
+          if (localStream && localStream.getAudioTracks().length > 0) {
+            audioTrackFromMic = localStream.getAudioTracks()[0]; // Keep existing mic audio
+          }
+          
+          if (localStream) { // Stop all tracks of the current localStream (mic/camera)
+            localStream.getTracks().forEach(track => track.stop());
+          }
+          
+          // Create a new stream for screen sharing
+          const newLocalStream = new MediaStream();
+          screenStream.getVideoTracks().forEach(track => newLocalStream.addTrack(track));
+          // If screenStream has its own audio (e.g., system audio) use that, otherwise use mic audio.
+          if (screenStream.getAudioTracks().length > 0) {
+            screenStream.getAudioTracks().forEach(track => newLocalStream.addTrack(track));
+          } else if (audioTrackFromMic) {
+            newLocalStream.addTrack(audioTrackFromMic); // Add back the mic audio track
+          }
+          localStream = newLocalStream; // Update global localStream
+
           calls.forEach(call => {
-            const videoTrack = screenStream.getVideoTracks()[0];
-            const sender = call.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
-            if (sender) {
-              sender.replaceTrack(videoTrack);
-            } else {
-              call.peerConnection.addTrack(videoTrack, screenStream);
+            if (call.open) {
+              const videoSender = call.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+              const screenVideoTrack = localStream.getVideoTracks()[0];
+              if (videoSender && screenVideoTrack) {
+                videoSender.replaceTrack(screenVideoTrack).catch(e => console.error("Error replacing video track for screen share:", e));
+              } else if (screenVideoTrack) {
+                call.peerConnection.addTrack(screenVideoTrack, localStream).catch(e => console.error("Error adding video track for screen share:", e));
+              }
+
+              const audioSender = call.peerConnection.getSenders().find(s => s.track && s.track.kind === 'audio');
+              const screenAudioTrack = localStream.getAudioTracks()[0]; // May be from screen or original mic
+              if (audioSender && screenAudioTrack) {
+                audioSender.replaceTrack(screenAudioTrack).catch(e => console.error("Error replacing audio track for screen share:", e));
+              } else if (screenAudioTrack) {
+                 call.peerConnection.addTrack(screenAudioTrack, localStream).catch(e => console.error("Error adding audio track for screen share:", e));
+              }
             }
           });
-          remoteVideo.srcObject = screenStream;
+
+          remoteVideo.srcObject = localStream; // Local preview of what's being shared
           remoteVideo.style.display = 'block';
-          remoteAudio.style.display = 'none';
+          remoteVideo.muted = true; // Mute local preview of self
           showAlert('Screen sharing started');
-          screenStream.getVideoTracks()[0].onended = function() {
+
+          localStream.getVideoTracks()[0].onended = function() {
             showAlert('Screen sharing stopped');
-            navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-              .then(function(stream) {
-                localStream = stream;
+             if (localStream) { // Stop screen sharing tracks
+                localStream.getTracks().forEach(track => track.stop());
+            }
+            // Revert to camera/mic or just mic
+            navigator.mediaDevices.getUserMedia({ audio: true, video: true }) // Try to get camera back
+              .then(function(mediaStream) {
+                localStream = mediaStream;
                 calls.forEach(call => {
-                  const audioTrack = stream.getAudioTracks()[0];
-                  const sender = call.peerConnection.getSenders().find(s => s.track && s.track.kind === 'audio');
-                  if (sender) {
-                    sender.replaceTrack(audioTrack);
+                  if (call.open) {
+                    const videoSender = call.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+                    const newVideoTrack = localStream.getVideoTracks()[0];
+                    if (videoSender && newVideoTrack) {
+                      videoSender.replaceTrack(newVideoTrack).catch(e => console.error("Error replacing video track post-share:", e));
+                    } else if (videoSender) { // Was sharing video, now no new video track (e.g. video denied)
+                        call.peerConnection.removeTrack(videoSender).catch(e => console.error("Error removing video track post-share:", e));
+                    } else if (newVideoTrack) { // Wasn't sharing video (error?) but now has video
+                        call.peerConnection.addTrack(newVideoTrack, localStream).catch(e => console.error("Error adding video track post-share:", e));
+                    }
+
+
+                    const audioSender = call.peerConnection.getSenders().find(s => s.track && s.track.kind === 'audio');
+                    const newAudioTrack = localStream.getAudioTracks()[0];
+                    if (audioSender && newAudioTrack) {
+                      audioSender.replaceTrack(newAudioTrack).catch(e => console.error("Error replacing audio track post-share:", e));
+                    } else if (newAudioTrack) {
+                       call.peerConnection.addTrack(newAudioTrack, localStream).catch(e => console.error("Error adding audio track post-share:", e));
+                    }
                   }
                 });
-                remoteVideo.style.display = 'none';
-                remoteAudio.srcObject = stream;
+                remoteVideo.srcObject = localStream; // Show local camera preview
+                remoteVideo.style.display = localStream.getVideoTracks().length > 0 ? 'block' : 'none';
+                remoteVideo.muted = true;
               })
               .catch(function(err) {
-                showAlert('Failed to revert to audio stream: ' + err);
+                showAlert('Failed to revert to camera/mic: ' + err.message + ". Ending video.");
+                 calls.forEach(call => { // Fallback: remove video sender if exists
+                    if (call.open) {
+                        const videoSender = call.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+                        if (videoSender) call.peerConnection.removeTrack(videoSender).catch(e => console.error("Error removing video track on fallback:", e));
+                    }
+                });
+                remoteVideo.style.display = 'none';
+                remoteVideo.srcObject = null;
               });
           };
         })
         .catch(function(err) {
-          showAlert('Screen sharing denied: ' + err);
+          showAlert('Screen sharing denied or error: ' + err.message);
         });
     }
+
 
     function toggleMute() {
       if (localStream) {
@@ -1337,41 +1353,57 @@
     }
 
     function endCall(specificCall = null) {
+      const endSingleCall = (callInstance) => {
+        if (callInstance && callInstance.open) {
+          callInstance.close();
+        }
+      };
+
       if (specificCall) {
-        specificCall.close();
+        endSingleCall(specificCall);
         calls = calls.filter(c => c !== specificCall);
       } else {
-        calls.forEach(call => call.close());
+        calls.forEach(call => endSingleCall(call));
         calls = [];
       }
-      if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-        localStream = null;
+
+      if (calls.length === 0) { // Only stop localStream if all calls are ended
+        if (localStream) {
+          localStream.getTracks().forEach(track => track.stop());
+          localStream = null;
+        }
+        remoteAudio.srcObject = null;
+        remoteAudio.muted = false;
+        remoteVideo.srcObject = null;
+        remoteVideo.style.display = 'none';
+        
+        document.getElementById('call-status').textContent = 'Call Ended';
+        document.getElementById('call-btn').style.display = 'inline-block';
+        document.getElementById('mute-btn').style.display = 'none';
+        document.getElementById('screen-share-btn').style.display = 'none';
+        document.getElementById('hangup-btn').style.display = 'none';
+        isMuted = false; // Reset mute state
+        document.getElementById('mute-btn').textContent = 'Mute';
       }
-      remoteAudio.srcObject = null;
-      remoteVideo.srcObject = null;
-      remoteVideo.style.display = 'none';
-      document.getElementById('call-status').textContent = 'Call Ended';
-      document.getElementById('call-btn').style.display = 'inline-block';
-      document.getElementById('mute-btn').style.display = 'none';
-      document.getElementById('screen-share-btn').style.display = 'none';
-      document.getElementById('hangup-btn').style.display = 'none';
-      addCallNotification('Call Ended', connections.map(c => c.peer).join(', '));
+      addCallNotification('Call Ended', specificCall ? specificCall.peer : 'all peers');
     }
+
 
     function addCallNotification(status, peerId) {
       const message = {
+        id: Date.now(),
         username: 'System',
         text: `${status} with ${peerId}`,
         timestamp: new Date().toLocaleTimeString(),
-        type: 'text'
+        type: 'text',
+        history: []
       };
-      messages.push(message);
-      connections.forEach(conn => {
-        conn.send(message);
-      });
-      renderMessages();
-      playMessageSound();
+      // messages.push(message); // System messages don't need to be broadcast typically, but can be shown locally
+      // connections.forEach(conn => { // Don't send system messages about calls to peers
+      //   conn.send(message);
+      // });
+      renderMessages([message]); // Render this new system message locally
+      // playMessageSound(); // Optional for system messages
     }
 
     function showAlert(message) {
@@ -1384,16 +1416,18 @@
       alertBox.style.color = 'white';
       alertBox.style.padding = '10px 20px';
       alertBox.style.borderRadius = '5px';
-      alertBox.style.zIndex = '1000';
+      alertBox.style.zIndex = '2000'; // Higher z-index
       alertBox.style.animation = 'fadeIn 0.3s ease';
       document.body.appendChild(alertBox);
       
       setTimeout(() => {
-        alertBox.style.animation = 'fadeOut 0.3s ease';
+        alertBox.style.animation = 'fadeOut 0.3s ease forwards';
         setTimeout(() => {
-          document.body.removeChild(alertBox);
+          if (document.body.contains(alertBox)) {
+             document.body.removeChild(alertBox);
+          }
         }, 300);
-      }, 2000);
+      }, 3000); // Increased duration
     }
 
     function toggleModal(imageSrc = 'https://raw.githubusercontent.com/Clonelis/Neptunehub/refs/heads/main/cat.png') {
@@ -1401,7 +1435,7 @@
       const modalImage = document.getElementById('modalImage');
       modalImage.src = imageSrc;
       if (modal.style.display === 'flex') {
-        modal.style.animation = 'fadeOut 0.3s ease';
+        modal.style.animation = 'fadeOut 0.3s ease forwards';
         setTimeout(() => {
           modal.style.display = 'none';
         }, 300);
@@ -1431,13 +1465,14 @@
       if (user) {
         currentUser = user;
         errorMessage.style.display = 'none';
-        if (myPeerId) {
+        if (myPeerId) { // If peer already initialized
           peerUsernames[myPeerId] = currentUser.username;
-          userAvatars[myPeerId] = catAvatar;
+          userAvatars[myPeerId] = userAvatars[myPeerId] || catAvatar; // Preserve existing avatar
           renderUserList();
         }
         updateNav();
         showTab('chat');
+        // Send hello to existing connections
         connections.forEach(conn => {
           const helloMessage = {
             type: 'hello',
@@ -1447,6 +1482,7 @@
           };
           conn.send(helloMessage);
         });
+        broadcastGroupInfo(); // If part of a group, inform others of login
       } else {
         errorMessage.textContent = 'Invalid username or password';
         errorMessage.style.display = 'block';
@@ -1454,27 +1490,33 @@
     }
 
     function logout() {
-      currentUser = null;
-      messages = [];
-      peerUsernames = {};
-      userAvatars = {};
-      currentGroupName = '';
-      groupHost = null;
-      if (myPeerId) {
-        peerUsernames[myPeerId] = null;
-        userAvatars[myPeerId] = null;
+      if (currentUser && myPeerId) { // Send a "bye" or update presence if desired
+          connections.forEach(conn => {
+              // conn.send({ type: 'bye', username: currentUser.username });
+          });
       }
-      renderMessages();
-      renderUserList();
+      currentUser = null;
+      // messages = []; // Keep messages or clear them? Let's keep them for now.
+      // peerUsernames = {}; // Keep known usernames, but self will be removed.
+      // userAvatars = {}; // Keep known avatars.
+      if(myPeerId) {
+        delete peerUsernames[myPeerId];
+        // delete userAvatars[myPeerId]; // Keep avatar even if logged out, or reset to default?
+      }
+      // currentGroupName = ''; // Keep group info? Or leave group?
+      // groupHost = null;
+      // groupPeers = [];
+
+      renderMessages(); // Re-render messages (e.g. if user context changes display)
+      renderUserList(); // Re-render user list
       updateGroupNameBar();
       updateNav();
       showTab('home');
-      connections.forEach(conn => conn.close());
-      connections = [];
-      groupPeers = [];
-      updateGroupList();
+      // connections.forEach(conn => conn.close()); // Don't close all connections on logout, user might want to stay connected anonymously or re-login
+      // connections = [];
+      // updateGroupList();
       if (calls.length > 0) {
-        endCall();
+        endCall(); // End all active calls
       }
     }
 
@@ -1487,6 +1529,7 @@
         loginTab.style.display = 'none';
         chatTab.style.display = 'inline-block';
         logoutTab.style.display = 'inline-block';
+        document.getElementById('call-btn').disabled = connections.length === 0;
       } else {
         loginTab.style.display = 'inline-block';
         chatTab.style.display = 'none';
@@ -1509,8 +1552,8 @@
         history: []
       };
 
-      if (messageText.match(/\.(gif)$/i) || messageText.includes('giphy.com')) {
-        message.type = 'gif';
+      if (messageText.match(/\.(gif|jpg|jpeg|png)$/i) || messageText.includes('giphy.com') || messageText.includes('tenor.com')) { // Expanded GIF/Image detection
+        message.type = 'image'; // Treat GIF as image for display
         message.fileUrl = messageText;
       }
 
@@ -1525,40 +1568,45 @@
 
     function editMessage(messageId) {
       const message = messages.find(m => m.id === messageId);
-      if (!message || message.username !== currentUser.username) return;
+      if (!message || message.username !== currentUser?.username) return;
 
       const newText = prompt('Edit your message:', message.text);
-      if (newText && newText.trim() && newText !== message.text) {
+      if (newText && newText.trim() && newText.trim() !== message.text) {
+        if (!message.history) message.history = [];
         message.history.push({ text: message.text, timestamp: message.timestamp });
         message.text = newText.trim();
-        message.timestamp = new Date().toLocaleTimeString();
-        messages = messages.map(m => m.id === messageId ? message : m);
+        message.timestamp = new Date().toLocaleTimeString(); // Update timestamp on edit
+        // messages = messages.map(m => m.id === messageId ? message : m); // No need, object is mutated
+        
         connections.forEach(conn => {
-          conn.send({ ...message, edited: true });
+          conn.send({ ...message, edited: true }); // Send the whole updated message
         });
         renderMessages();
-        playMessageSound();
+        playMessageSound(); // Optional: sound on edit
       }
     }
 
     function receiveMessage(data) {
+      // Prevent processing own messages if server echoes them (not applicable here with P2P)
+      // if (data.username === currentUser?.username && data.id && messages.some(m => m.id === data.id)) return;
+
       if (data.type === 'hello') {
-        if (!messages.some(m => m.type === 'hello' && m.username === data.username)) {
+        if (!messages.some(m => m.type === 'hello' && m.username === data.username && m.timestamp === data.timestamp)) { // More specific check
           messages.push(data);
         }
       } else if (data.edited) {
-        const existingMessage = messages.find(m => m.id === data.id);
-        if (existingMessage) {
-          existingMessage.text = data.text;
-          existingMessage.timestamp = data.timestamp;
-          existingMessage.history = data.history;
+        const existingMessageIndex = messages.findIndex(m => m.id === data.id);
+        if (existingMessageIndex > -1) {
+          messages[existingMessageIndex] = data; // Replace with new message data
         } else {
-          messages.push(data);
+          messages.push(data); // If not found, add as new (should not happen if ID is consistent)
         }
       } else {
-        messages.push(data);
+          if (!messages.some(m => m.id === data.id)) { // Add only if ID is unique
+            messages.push(data);
+          }
       }
-      renderMessages();
+      renderMessages(); // Render all messages
       playMessageSound();
     }
 
@@ -1566,15 +1614,15 @@
       const file = event.target.files[0];
       if (!file || !currentUser) return;
 
-      const maxImageSize = 20 * 1024 * 1024;
-      const maxVideoSize = 50 * 1024 * 1024;
+      const maxImageSize = 20 * 1024 * 1024; // 20MB for images
+      const maxVideoSize = 50 * 1024 * 1024; // 50MB for videos
       if (file.type.startsWith('image/') && file.size > maxImageSize) {
-        showAlert('Image file is too large (max 10MB)');
+        showAlert('Image file is too large (max 20MB)');
         event.target.value = '';
         return;
       }
       if (file.type.startsWith('video/') && file.size > maxVideoSize) {
-        showAlert('Video file is too large (max 20MB)');
+        showAlert('Video file is too large (max 50MB)');
         event.target.value = '';
         return;
       }
@@ -1591,6 +1639,7 @@
           username: currentUser.username,
           timestamp: new Date().toLocaleTimeString(),
           type: file.type.startsWith('image/') ? 'image' : 'video',
+          fileName: file.name, // Store filename
           fileUrl: e.target.result,
           history: []
         };
@@ -1607,33 +1656,41 @@
       };
       reader.readAsDataURL(file);
 
-      event.target.value = '';
+      event.target.value = ''; // Reset file input
     }
 
-    function copyMessageContent(message) {
-      let content = '';
-      if (message.type === 'text') {
-        content = message.text;
-      } else if (message.type === 'gif' || message.type === 'image' || message.type === 'video') {
-        content = message.fileUrl;
-        if (content.length > 1000) {
-          showAlert('Media URL is too large to copy fully. Copied partial URL.');
-          content = content.substring(0, 1000) + '...';
+    function copyMessageContent(messageString) { // Pass stringified message
+      try {
+        const message = JSON.parse(messageString);
+        let content = '';
+        if (message.type === 'text') {
+          content = message.text;
+        } else if (message.type === 'image' || message.type === 'video') { // 'gif' is treated as 'image'
+          content = message.fileUrl;
+          // Data URLs can be very long. Clipboard might truncate.
+          // if (content.startsWith('data:') && content.length > 2000) { // Arbitrary limit for data URLs
+          //   showAlert('Media content (Data URL) is too large to copy fully to clipboard. Try downloading.');
+          //   return; // Don't attempt to copy very long data URLs
+          // }
         }
+        navigator.clipboard.writeText(content).then(() => {
+          showAlert('Message content copied to clipboard!');
+        }).catch(err => {
+          showAlert('Failed to copy message content: ' + err.message);
+          console.error('Copy failed:', err);
+        });
+      } catch (e) {
+        showAlert('Error parsing message for copy.');
+        console.error("Error parsing message for copy:", e);
       }
-      navigator.clipboard.writeText(content).then(() => {
-        showAlert('Message copied to clipboard!');
-      }).catch(err => {
-        showAlert('Failed to copy message');
-        console.error('Copy failed:', err);
-      });
     }
+
 
     function playMessageSound() {
       messageSound.currentTime = 0;
       messageSound.play().catch(err => {
-        console.error('Failed to play sound:', err);
-        showAlert('Failed to play message sound');
+        // console.warn('Failed to play sound (user interaction might be required first):', err.message);
+        // showAlert('Failed to play message sound'); // Can be annoying
       });
     }
 
@@ -1641,31 +1698,39 @@
       const userListItems = document.getElementById('user-list-items');
       userListItems.innerHTML = '';
 
-      const users = [];
+      const uniqueUsers = new Map(); // To handle potential duplicates if myPeerId is also in connections
+
       if (currentUser && myPeerId && peerUsernames[myPeerId]) {
-        users.push({ peerId: myPeerId, username: peerUsernames[myPeerId] });
+        uniqueUsers.set(myPeerId, { peerId: myPeerId, username: peerUsernames[myPeerId] });
+      } else if (currentUser && myPeerId && !peerUsernames[myPeerId]) { // If logged in but peerUsernames not updated yet
+         uniqueUsers.set(myPeerId, { peerId: myPeerId, username: currentUser.username });
       }
+
+
       connections.forEach(conn => {
         if (peerUsernames[conn.peer]) {
-          users.push({ peerId: conn.peer, username: peerUsernames[conn.peer] });
+          uniqueUsers.set(conn.peer, { peerId: conn.peer, username: peerUsernames[conn.peer] });
         }
       });
+      
+      const usersToRender = Array.from(uniqueUsers.values());
 
-      users.forEach(user => {
+      usersToRender.forEach(user => {
         const userDiv = document.createElement('div');
         userDiv.className = 'user-item';
-        const isHost = user.peerId === groupHost;
+        const isSelf = user.peerId === myPeerId;
+        const isGroupHostUser = user.peerId === groupHost;
         const avatarSrc = userAvatars[user.peerId] || catAvatar;
+        
         let userContent = `
           <input type="file" id="avatar-input-${user.peerId}" accept="image/png,image/jpeg,image/gif" style="display: none;" onchange="changeAvatar(event, '${user.peerId}')">
-          <img src="${avatarSrc}" alt="Avatar" onclick="if ('${user.peerId}' === myPeerId) document.getElementById('avatar-input-${user.peerId}').click();">
-          <span>${user.username}${isHost ? '<span class="host-label">host</span>' : ''}</span>
+          <img src="${avatarSrc}" alt="Avatar" title="${isSelf ? 'Click to change your avatar' : user.username}" onclick="${isSelf ? `document.getElementById('avatar-input-${user.peerId}').click()` : ''}">
+          <span>${user.username}${isSelf ? ' (You)' : ''}${isGroupHostUser ? '<span class="host-label">host</span>' : ''}</span>
         `;
-        if (isHost && user.peerId === myPeerId) {
-          // Host doesn't get a kick button for themselves
-        } else if (groupHost === myPeerId && user.peerId !== myPeerId) {
+        // Kick button logic: if current user is host, and this list item is not the host themselves
+        if (currentUser && myPeerId === groupHost && !isSelf && groupPeers.includes(user.peerId)) {
           userContent += `
-            <button class="kick-btn" onclick="kickUser('${user.peerId}')">
+            <button class="kick-btn" title="Kick ${user.username}" onclick="kickUser('${user.peerId}')">
               <svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px">
                 <path d="M480-80q-83 0-156-31.5T196-197q-54-54-85-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm-40-360h200q17 0 28.5-11.5T680-480q0-17-11.5-28.5T640-520H440q-17 0-28.5 11.5T400-480q0 17 11.5 28.5T440-440Z"/>
               </svg>
@@ -1676,113 +1741,142 @@
         userListItems.appendChild(userDiv);
       });
 
-      if (users.length === 0) {
+      if (usersToRender.length === 0) {
         const emptyDiv = document.createElement('div');
-        emptyDiv.textContent = 'No users online';
+        emptyDiv.textContent = currentUser ? 'No other users online' : 'Login to see users';
         emptyDiv.style.color = '#99ccff';
         emptyDiv.style.fontSize = '14px';
         emptyDiv.style.textAlign = 'center';
         userListItems.appendChild(emptyDiv);
       }
+      updateGroupNameBar(); // Update host display in group name bar
     }
 
-    function renderMessages() {
-      const chatMessages = document.getElementById('chat-messages');
-      const isAtBottom = chatMessages.scrollTop + chatMessages.clientHeight >= chatMessages.scrollHeight - 5;
+    function renderMessages(newMessagesArray = null) { // Can optionally take an array of new messages to append
+      const chatMessagesContainer = document.getElementById('chat-messages');
+      const isScrolledToBottom = chatMessagesContainer.scrollHeight - chatMessagesContainer.clientHeight <= chatMessagesContainer.scrollTop + 1;
 
-      chatMessages.innerHTML = '';
-      messages.filter(msg => msg.type !== 'hello').forEach(msg => {
+      const messagesToRender = newMessagesArray ? newMessagesArray : messages.filter(msg => msg.type !== 'hello');
+
+      messagesToRender.forEach(msg => {
+        // Avoid re-rendering existing messages if newMessagesArray is not used (full re-render)
+        if (!newMessagesArray && document.getElementById(`msg-${msg.id}`)) return; 
+
         const messageDiv = document.createElement('div');
         messageDiv.className = 'chat-message';
+        messageDiv.id = `msg-${msg.id}`; // Add ID for potential updates/checks
         
-        let messageContent = `<span>${msg.username}</span> [${msg.timestamp}]: `;
+        let messagePrefix = `<span>${peerUsernames[msg.senderPeerId] || msg.username}</span>`;
+        if (msg.username === 'System') {
+             messagePrefix = `<span style="color: #ffae42;">${msg.username}</span>`; // System message style
+        } else if (msg.username === currentUser?.username) {
+             messagePrefix = `<span style="color: #66b3ff;">${msg.username} (You)</span>`; // Own message style
+        }
+        
+        let messageContentHTML = `${messagePrefix} [${msg.timestamp}]: `;
         
         if (msg.type === 'text') {
-          messageContent += msg.text;
-        } else if (msg.type === 'gif' || msg.type === 'image') {
-          messageContent += `<br><img src="${msg.fileUrl}" alt="Media" onclick="toggleModal('${msg.fileUrl}')">`;
+          messageContentHTML += msg.text.replace(/</g, "<").replace(/>/g, ">"); // Basic XSS protection
+        } else if (msg.type === 'image') { // Handles 'gif' as well
+          messageContentHTML += `<br><img src="${msg.fileUrl}" alt="${msg.fileName || 'Media'}" title="${msg.fileName || 'Click to zoom'}" onclick="toggleModal('${msg.fileUrl}')">`;
         } else if (msg.type === 'video') {
-          messageContent += `<br><video src="${msg.fileUrl}" controls></video>`;
+          messageContentHTML += `<br><video src="${msg.fileUrl}" controls title="${msg.fileName || 'Video'}"></video>`;
+           if(msg.fileName) messageContentHTML += `<br><a href="${msg.fileUrl}" download="${msg.fileName}" style="font-size:12px;">Download ${msg.fileName}</a>`;
         }
 
-        messageContent += `
-          <button class="copy-btn" onclick="copyMessageContent(${JSON.stringify(msg)})">
+        // Copy button
+        // Pass the actual message object as a string to avoid issues with complex objects in onclick
+        messageContentHTML += `
+          <button class="copy-btn" title="Copy Content" onclick='copyMessageContent(${JSON.stringify(JSON.stringify(msg))})'>
             <svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px">
               <path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Z"/>
             </svg>
           </button>`;
 
         if (msg.username === currentUser?.username && msg.type === 'text') {
-          messageContent += `
-            <button class="edit-btn" onclick="editMessage(${msg.id})">
+          messageContentHTML += `
+            <button class="edit-btn" title="Edit Message" onclick="editMessage(${msg.id})">
               <svg xmlns="http://www.w3.org/2000/svg" height="16px" viewBox="0 -960 960 960" width="16px">
                 <path d="M200-200h57l391-391-57-57-391 391v57Zm-80 80v-170l528-527q12-11 28-11t28 11l57 57q11 12 11 28t-11 28L230-270H120Zm640-584-56-56 56 56Zm-141 85-28-29 57 57-29-28Z"/>
-            </svg>
-          </button>`;
+              </svg>
+            </button>`;
         }
 
         if (msg.history && msg.history.length > 0) {
-          messageContent += `<div class="history">Edit History: ${msg.history.map(h => `[${h.timestamp}] ${h.text}`).join('<br>')}</div>`;
+          messageContentHTML += `<div class="history">Edited: ${msg.history.map(h => `(${new Date(h.timestamp || Date.now()).toLocaleTimeString()}) "${h.text.replace(/</g, "<").replace(/>/g, ">")}"`).join('; ')}</div>`;
         }
 
-        messageDiv.innerHTML = messageContent;
-        chatMessages.appendChild(messageDiv);
+        messageDiv.innerHTML = messageContentHTML;
+        chatMessagesContainer.appendChild(messageDiv);
       });
-
-      if (isAtBottom || messages.length === 0) {
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+      
+      if (newMessagesArray || isScrolledToBottom || messages.length <= 1) { // Scroll if new messages, at bottom, or very few messages
+        chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
       }
     }
+
 
     function showTab(tabName) {
       if (isSwitching) return;
 
       if (tabName === 'chat' && !currentUser) {
-        showTab('login');
+        showTab('login'); // Redirect to login if not logged in and trying to access chat
         return;
       }
 
       isSwitching = true;
       document.querySelectorAll('.nav-item').forEach(tab => {
-        tab.classList.add('disabled');
+        tab.classList.add('disabled'); // Disable nav items during transition
       });
 
+      let activeContent = null;
       document.querySelectorAll('.tab-content').forEach(content => {
-        if (content.style.display === 'block') {
-          content.style.animation = 'fadeOut 0.3s ease';
-          setTimeout(() => {
-            content.style.display = 'none';
-            content.style.animation = '';
-          }, 300);
+        if (content.style.display === 'block' || content.classList.contains('active-tab-content')) {
+          activeContent = content;
         }
       });
+      
+      if (activeContent) {
+        activeContent.style.animation = 'fadeOut 0.3s ease forwards';
+        setTimeout(() => {
+          activeContent.style.display = 'none';
+          activeContent.classList.remove('active-tab-content');
+          activeContent.style.animation = ''; // Clear animation
+          proceedShowingNewTab();
+        }, 300);
+      } else {
+          proceedShowingNewTab();
+      }
+      
+      function proceedShowingNewTab() {
+        const footer = document.querySelector('.footer');
+        footer.classList.remove('visible');
+        footer.classList.add('hidden');
 
-      const footer = document.querySelector('.footer');
-      footer.classList.remove('visible');
-      footer.classList.add('hidden');
-
-      document.querySelectorAll('.nav-item').forEach(tab => {
-        tab.classList.remove('active');
-      });
-
-      setTimeout(() => {
+        document.querySelectorAll('.nav-item').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        
         const tabContent = document.getElementById(tabName + '-content');
-        tabContent.style.display = 'block';
-        tabContent.style.animation = 'fadeIn 0.5s ease';
+        if (tabContent) {
+            tabContent.style.display = 'block';
+            tabContent.classList.add('active-tab-content');
+            tabContent.style.animation = 'fadeIn 0.5s ease';
+        }
 
         footer.classList.remove('hidden');
         footer.classList.add('visible');
 
-        const activeTab = document.querySelector(`.nav-item[onclick="showTab('${tabName}')"]`);
-        if (activeTab) activeTab.classList.add('active');
+        const activeNavTab = Array.from(document.querySelectorAll('.nav-item')).find(el => el.getAttribute('onclick') === `showTab('${tabName}')`);
+        if (activeNavTab) activeNavTab.classList.add('active');
 
         setTimeout(() => {
           isSwitching = false;
           document.querySelectorAll('.nav-item').forEach(tab => {
-            tab.classList.remove('disabled');
+            tab.classList.remove('disabled'); // Re-enable nav items
           });
-        }, 500);
-      }, 300);
+        }, 500); // Duration of fadeIn + buffer
+      }
     }
   </script>
 </body>
